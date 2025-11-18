@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 
 #define XDMA_USER_DEV "/dev/xdma0_user"
+#define XDMA_HBM_WRITE "/dev/xdma0_h2c_*"
+#define XDMA_HBM_READ "/dev/xdma0_c2h_*"
+
 #define MAP_SIZE      4096        // Matches AXI-Lite BAR size
 #define REG_OFFSET    0x0         // slv_reg0
 
