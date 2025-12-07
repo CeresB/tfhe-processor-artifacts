@@ -24,10 +24,10 @@ entity tfhe_block is
         ----------------------------------------------------------------
         C_M00_AXI_TARGET_SLAVE_BASE_ADDR : std_logic_vector(63 downto 0) := x"40000000";
         C_M00_AXI_BURST_LEN  : integer := 16;
-        C_M00_AXI_ID_WIDTH   : integer := 1;
-        C_M00_AXI_ADDR_WIDTH : integer := 64;
+        C_M00_AXI_ID_WIDTH   : integer := 6;
+        C_M00_AXI_ADDR_WIDTH : integer :=  64; -- hbm_id_bit_width;
         C_M00_AXI_DATA_WIDTH : integer := 32;
-        C_M00_AXI_AWUSER_WIDTH : integer := 0;
+        C_M00_AXI_AWUSER_WIDTH : integer := 4; -- axi_addr_bits
         C_M00_AXI_ARUSER_WIDTH : integer := 0;
         C_M00_AXI_WUSER_WIDTH  : integer := 0;
         C_M00_AXI_RUSER_WIDTH  : integer := 0;
@@ -204,39 +204,39 @@ architecture rtl of tfhe_block is
     -- Internal signals (matching Verilog instantiation)
     --------------------------------------------------------------------
     -- clocks / resets for internal user logic
-    signal computing_clk   : std_logic;
-    signal computing_reset : std_logic;
+    -- signal computing_clk   : std_logic;
+    -- signal computing_reset : std_logic;
 
-    -- signals for PBS accelerator and simple HBM adapter
-    signal lwe_n_buf_out              : sub_polynom(0 to pbs_throughput - 1);
-    signal lwe_n_buf_out_valid        : std_ulogic := '0';
-    signal lwe_n_buf_write_next_reset : std_ulogic := '0';
-    signal lwe_n_buf_rq_idx           : unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1) := (others => '0');
+    -- -- signals for PBS accelerator and simple HBM adapter
+    -- signal lwe_n_buf_out              : sub_polynom(0 to pbs_throughput - 1);
+    -- signal lwe_n_buf_out_valid        : std_ulogic := '0';
+    -- signal lwe_n_buf_write_next_reset : std_ulogic := '0';
+    -- signal lwe_n_buf_rq_idx           : unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1) := (others => '0');
 
-    -- minimal HBM package signals (single-stack mapping for AI/BSK)
-    signal ai_hbm_out : hbm_ps_out_read_pkg_arr(0 to ai_hbm_num_ps_ports - 1);
-    signal ai_hbm_in  : hbm_ps_in_read_pkg_arr(0 to ai_hbm_num_ps_ports - 1);
-    signal bsk_hbm_out : hbm_ps_out_read_pkg_arr(0 to bsk_hbm_num_ps_ports - 1);
-    signal bsk_hbm_in  : hbm_ps_in_read_pkg_arr(0 to bsk_hbm_num_ps_ports - 1);
+    -- -- minimal HBM package signals (single-stack mapping for AI/BSK)
+    -- signal ai_hbm_out : hbm_ps_out_read_pkg_arr(0 to ai_hbm_num_ps_ports - 1);
+    -- signal ai_hbm_in  : hbm_ps_in_read_pkg_arr(0 to ai_hbm_num_ps_ports - 1);
+    -- signal bsk_hbm_out : hbm_ps_out_read_pkg_arr(0 to bsk_hbm_num_ps_ports - 1);
+    -- signal bsk_hbm_in  : hbm_ps_in_read_pkg_arr(0 to bsk_hbm_num_ps_ports - 1);
 
-    -- default (inactive) HBM packages to initialize arrays
-    constant default_hbm_out_read_pkg : hbm_ps_out_read_pkg := (
-        rdata        => (others => '0'),
-        rlast        => '0',
-        rdata_parity => (others => '0'),
-        arready      => '0',
-        rid          => (others => '0'),
-        rresp        => (others => '0'),
-        rvalid       => '0'
-    );
+    -- -- default (inactive) HBM packages to initialize arrays
+    -- constant default_hbm_out_read_pkg : hbm_ps_out_read_pkg := (
+    --     rdata        => (others => '0'),
+    --     rlast        => '0',
+    --     rdata_parity => (others => '0'),
+    --     arready      => '0',
+    --     rid          => (others => '0'),
+    --     rresp        => (others => '0'),
+    --     rvalid       => '0'
+    -- );
 
-    constant default_hbm_in_read_pkg : hbm_ps_in_read_pkg := (
-        araddr  => (others => '0'),
-        arvalid => '0',
-        arid    => (others => '0'),
-        rready  => '0',
-        arlen   => (others => '0')
-    );
+    -- constant default_hbm_in_read_pkg : hbm_ps_in_read_pkg := (
+    --     araddr  => (others => '0'),
+    --     arvalid => '0',
+    --     arid    => (others => '0'),
+    --     rready  => '0',
+    --     arlen   => (others => '0')
+    -- );
 
 
 begin
@@ -349,66 +349,66 @@ begin
     -- Simple PBS accelerator + M00 read-adapter hookup
     --------------------------------------------------------------------
     -- drive internal computing clock/reset from top-level
-    computing_clk   <= tfhe_clk;
-    computing_reset <= s00_axi_aresetn;
+    -- computing_clk   <= tfhe_clk;
+    -- computing_reset <= s00_axi_aresetn;
 
-    -- initialize arrays with default packages where not used
-    ai_hbm_out  <= (others => default_hbm_out_read_pkg);
-    bsk_hbm_out <= (others => default_hbm_out_read_pkg);
-    ai_hbm_in   <= (others => default_hbm_in_read_pkg);
-    bsk_hbm_in  <= (others => default_hbm_in_read_pkg);
+    -- -- initialize arrays with default packages where not used
+    -- ai_hbm_out  <= (others => default_hbm_out_read_pkg);
+    -- bsk_hbm_out <= (others => default_hbm_out_read_pkg);
+    -- ai_hbm_in   <= (others => default_hbm_in_read_pkg);
+    -- bsk_hbm_in  <= (others => default_hbm_in_read_pkg);
 
-    -- instantiate the PBS computing core (simplified wiring)
-    pbs_computing_inst : entity work.tfhe_pbs_accelerator
-        port map (
-            i_clk               => computing_clk,
-            i_reset_n           => computing_reset,
-            i_ram_coeff_idx     => lwe_n_buf_rq_idx,
-            o_return_address    => open,
-            o_out_valid         => lwe_n_buf_out_valid,
-            o_out_data          => lwe_n_buf_out,
-            o_next_module_reset => lwe_n_buf_write_next_reset,
-            i_ai_hbm_out        => ai_hbm_out,
-            i_bsk_hbm_out       => bsk_hbm_out,
-            i_op_hbm_out        => default_hbm_out_read_pkg,
-            i_lut_hbm_out       => default_hbm_out_read_pkg,
-            i_b_hbm_out         => default_hbm_out_read_pkg,
-            o_ai_hbm_in         => ai_hbm_in,
-            o_bsk_hbm_in        => bsk_hbm_in,
-            o_op_hbm_in         => open,
-            o_lut_hbm_in        => open,
-            o_b_hbm_in          => open
-        );
+    -- -- instantiate the PBS computing core 
+    -- pbs_computing_inst : entity work.tfhe_pbs_accelerator
+    --     port map (
+    --         i_clk               => computing_clk,
+    --         i_reset_n           => computing_reset,
+    --         i_ram_coeff_idx     => lwe_n_buf_rq_idx,
+    --         o_return_address    => open,
+    --         o_out_valid         => lwe_n_buf_out_valid,
+    --         o_out_data          => lwe_n_buf_out,
+    --         o_next_module_reset => lwe_n_buf_write_next_reset,
+    --         i_ai_hbm_out        => ai_hbm_out,
+    --         i_bsk_hbm_out       => bsk_hbm_out,
+    --         i_op_hbm_out        => default_hbm_out_read_pkg,
+    --         i_lut_hbm_out       => default_hbm_out_read_pkg,
+    --         i_b_hbm_out         => default_hbm_out_read_pkg,
+    --         o_ai_hbm_in         => ai_hbm_in,
+    --         o_bsk_hbm_in        => bsk_hbm_in,
+    --         o_op_hbm_in         => open,
+    --         o_lut_hbm_in        => open,
+    --         o_b_hbm_in          => open
+    --     );
 
-    -- adapter: convert one hbm_ps_in_read_pkg (from PBS) into M00 AXI read
-    u_hbm_read_pkg_to_m00_adapter : entity work.hbm_read_pkg_to_m00_adapter
-        port map (
-            i_clk    => m00_axi_aclk,
-            i_reset_n=> m00_axi_aresetn,
-            i_hbm_read_in  => ai_hbm_in(0),
-            o_hbm_read_out => ai_hbm_out(0),
+    -- -- adapter: convert one hbm_ps_in_read_pkg (from PBS) into M00 AXI read
+    -- u_hbm_read_pkg_to_m00_adapter : entity work.hbm_read_pkg_to_m00_adapter
+    --     port map (
+    --         i_clk    => m00_axi_aclk,
+    --         i_reset_n=> m00_axi_aresetn,
+    --         i_hbm_read_in  => ai_hbm_in(0),
+    --         o_hbm_read_out => ai_hbm_out(0),
 
-            M_AXI_ARID    => m00_axi_arid,
-            M_AXI_ARADDR  => m00_axi_araddr,
-            M_AXI_ARLEN   => m00_axi_arlen,
-            M_AXI_ARSIZE  => m00_axi_arsize,
-            M_AXI_ARBURST => m00_axi_arburst,
-            M_AXI_ARLOCK  => m00_axi_arlock,
-            M_AXI_ARCACHE => m00_axi_arcache,
-            M_AXI_ARPROT  => m00_axi_arprot,
-            M_AXI_ARQOS   => m00_axi_arqos,
-            M_AXI_ARUSER  => m00_axi_aruser,
-            M_AXI_ARVALID => m00_axi_arvalid,
-            M_AXI_ARREADY => m00_axi_arready,
+    --         M_AXI_ARID    => m00_axi_arid,
+    --         M_AXI_ARADDR  => m00_axi_araddr,
+    --         M_AXI_ARLEN   => m00_axi_arlen,
+    --         M_AXI_ARSIZE  => m00_axi_arsize,
+    --         M_AXI_ARBURST => m00_axi_arburst,
+    --         M_AXI_ARLOCK  => m00_axi_arlock,
+    --         M_AXI_ARCACHE => m00_axi_arcache,
+    --         M_AXI_ARPROT  => m00_axi_arprot,
+    --         M_AXI_ARQOS   => m00_axi_arqos,
+    --         M_AXI_ARUSER  => m00_axi_aruser,
+    --         M_AXI_ARVALID => m00_axi_arvalid,
+    --         M_AXI_ARREADY => m00_axi_arready,
 
-            M_AXI_RID     => m00_axi_rid,
-            M_AXI_RDATA   => m00_axi_rdata,
-            M_AXI_RRESP   => m00_axi_rresp,
-            M_AXI_RLAST   => m00_axi_rlast,
-            M_AXI_RUSER   => m00_axi_ruser,
-            M_AXI_RVALID  => m00_axi_rvalid,
-            M_AXI_RREADY  => m00_axi_rready
-        );
+    --         M_AXI_RID     => m00_axi_rid,
+    --         M_AXI_RDATA   => m00_axi_rdata,
+    --         M_AXI_RRESP   => m00_axi_rresp,
+    --         M_AXI_RLAST   => m00_axi_rlast,
+    --         M_AXI_RUSER   => m00_axi_ruser,
+    --         M_AXI_RVALID  => m00_axi_rvalid,
+    --         M_AXI_RREADY  => m00_axi_rready
+    --     );
 
     --------------------------------------------------------------------
     -- AXI Master M01 instance

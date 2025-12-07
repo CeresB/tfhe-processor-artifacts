@@ -35,7 +35,7 @@ package ip_cores_constants is
      constant hbm_bytes_per_ps_port            : integer := hbm_data_width / 8;
      constant hbm_ps_port_addr_width           : integer := 23 + 1 * boolean'pos(hbm_8gb_per_stack) + 5; -- +5 because 4:0 unused as we always address 32 bytes = 256 bits at once
      constant hbm_port_and_stack_addr_width    : integer := 1 + 4;                                       -- bit 32 selects hbm stack, 31:28 select AXI port
-     constant hbm_addr_width                   : integer := hbm_port_and_stack_addr_width + hbm_ps_port_addr_width;
+     constant hbm_addr_width                   : integer :=  64; -- changed --hbm_port_and_stack_addr_width + hbm_ps_port_addr_width;
      -- constant hbm_block_addr_step              : integer                        := hbm_bytes_per_ps_port;                       -- because we have 256 bits = 32 bytes packages
      constant hbm_burstlen_max        : unsigned(3 downto 0)           := x"F";                   --"1111";
      constant hbm_burstlen_no_burst   : unsigned(3 downto 0)           := x"0";                   --"0000";
@@ -71,7 +71,7 @@ package ip_cores_constants is
      constant axi_resp_bits             : integer := hbm_resp_bit_width;
      constant axi_pkg_bit_size          : integer := hbm_data_width;
      constant axi_strobe_bits           : integer := hbm_strobe_setting'length;
-     constant axi_region_bits           : integer := 4;
+     constant axi_region_bits           : integer := 0; -- originally 4, but hbm_ip uses 16 regions
      constant axi_id_bit_width          : integer := hbm_id_bit_width;
      -- pcie related
      constant pcie_irq_bit_width             : integer := 1;

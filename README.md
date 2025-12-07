@@ -66,6 +66,12 @@ When evaluating frequency or resource usage, review Vivado implementation warnin
 
 ---
 
+## Setup the Env
+
+```sh
+git clone https://github.com/Archfx/tfhe_pu
+git submodule update --init #initilize the Xilinx dma drivers repo
+```
 ## Contributing
 
 We welcome contributions that improve performance, clarity, or modularity.  
