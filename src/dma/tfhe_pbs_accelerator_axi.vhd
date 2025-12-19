@@ -21,6 +21,9 @@ entity tfhe_pbs_accelerator_axi is
     i_clk               : in  std_ulogic;
     i_reset_n           : in  std_ulogic;
 
+    -- Control signals
+    start_pbs           : in  std_ulogic;
+
     -- PBS control / output interface to the rest of the processor
     o_ram_coeff_idx     : out unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
     o_return_address    : out hbm_ps_port_memory_address;
@@ -131,6 +134,24 @@ architecture rtl of tfhe_pbs_accelerator_axi is
 
   signal hbm_write_in_s          : hbm_ps_in_write_pkg;
   signal hbm_write_out_s         : hbm_ps_out_write_pkg;
+  
+     ---------------------------------------------------------------------
+  -- PBS controller logic
+  ---------------------------------------------------------------------
+  
+  type pbs_ctrl_state_t is (
+  PBS_IDLE,
+  PBS_RUN,
+  PBS_DRAIN,
+  PBS_DONE
+  );
+  
+
+  signal start_pbs_d : std_ulogic := '0';
+  signal start_pbs_pulse : std_ulogic;
+  signal pbs_state : pbs_ctrl_state_t := PBS_IDLE;
+  signal pbs_enable : std_ulogic := '0';
+
 
 begin
 
@@ -142,20 +163,22 @@ begin
 
   M_AXI_ARADDR  <= axi_araddr;
   M_AXI_ARLEN   <= axi_arlen;
-  M_AXI_ARVALID <= axi_arvalid;
-  M_AXI_RREADY  <= axi_rready;
+
+  
+  M_AXI_ARVALID <= axi_arvalid when pbs_enable = '1' else '0';
+  M_AXI_RREADY  <= axi_rready  when pbs_enable = '1' else '0';
 
   -- WRITE side: constant settings
   M_AXI_AWSIZE  <= std_logic_vector(hbm_burstsize);
   M_AXI_AWBURST <= std_logic_vector(hbm_burstmode);
 
   --------------------------------------------------------------------
-  -- Instantiate the original TFHE PBS accelerator
+  -- Instantiate the TFHE PBS accelerator
   --------------------------------------------------------------------
   u_pbs_accel : entity work.tfhe_pbs_accelerator
     port map (
       i_clk               => i_clk,
-      i_reset_n           => i_reset_n,
+      i_reset_n           => i_reset_n and pbs_enable, -- gated reset for now, better to do internal FSM
       i_ram_coeff_idx     => ram_coeff_idx_s,
       o_return_address    => pbs_return_addr_s,
       o_out_valid         => pbs_out_valid_s,
@@ -250,6 +273,71 @@ begin
 
   rd_req(IDX_OP)      <= op_hbm_in;
   op_hbm_out          <= rd_rsp(IDX_OP);
+
+  ------------------
+
+  ---------------------------------------------------------------------
+  -- PBS controller logic
+  ---------------------------------------------------------------------
+
+
+  process(i_clk)
+  begin
+    if rising_edge(i_clk) then
+      start_pbs_d <= start_pbs;
+    end if;
+  end process;
+
+  start_pbs_pulse <= start_pbs and not start_pbs_d;
+
+
+
+  process(i_clk)
+  begin
+    if rising_edge(i_clk) then
+      if i_reset_n = '0' then
+        pbs_state  <= PBS_IDLE;
+        pbs_enable <= '0';
+
+      else
+        case pbs_state is
+
+          ------------------------------------------------
+          when PBS_IDLE =>
+            pbs_enable <= '0';
+            if start_pbs_pulse = '1' then
+              pbs_state  <= PBS_RUN;
+              pbs_enable <= '1';
+            end if;
+
+          ------------------------------------------------
+          when PBS_RUN =>
+            -- PBS actively producing data
+            if pbs_next_module_reset_s = '1' then
+              pbs_state <= PBS_DRAIN;
+            end if;
+
+          ------------------------------------------------
+          when PBS_DRAIN =>
+            -- allow AXI writes to finish
+            if hbm_write_in_s.awvalid = '0' and
+              hbm_write_in_s.wvalid  = '0' then
+              pbs_state <= PBS_DONE;
+            end if;
+
+          ------------------------------------------------
+          when PBS_DONE =>
+            pbs_enable <= '0';
+            if start_pbs = '0' then
+              pbs_state <= PBS_IDLE;
+            end if;
+
+        end case;
+      end if;
+    end if;
+  end process;
+-----------------------------------------------------
+
 
   --------------------------------------------------------------------
   -- AXI Read Arbiter:

@@ -16,6 +16,12 @@
 	(
 		// Users to add ports here
 		output reg [7:0] user_led,
+		output wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_0,
+		output wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_1,
+		input wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_2,
+		input wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_3,
+
+		output wire start_pbs,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -112,6 +118,12 @@
 	// User LED logic
     reg [31:0] led_cnt;
     reg [7:0]  led_shift;
+
+	// Assigning host_data_address outputs to corresponding slave registers
+	assign host_data_address_0 = slv_reg0;
+	assign host_data_address_1 = slv_reg1;
+	assign host_data_address_2 = slv_reg2;
+	assign host_data_address_3 = slv_reg3;
 
 	// I/O Connections assignments
 

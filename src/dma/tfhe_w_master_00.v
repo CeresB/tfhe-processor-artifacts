@@ -11,7 +11,8 @@ module tfhe_w_master_full_v1_0_M00_AXI #
     parameter integer C_M_AXI_ARUSER_WIDTH = 0,
     parameter integer C_M_AXI_WUSER_WIDTH  = 0,
     parameter integer C_M_AXI_RUSER_WIDTH  = 0,
-    parameter integer C_M_AXI_BUSER_WIDTH  = 0
+    parameter integer C_M_AXI_BUSER_WIDTH  = 0,
+    parameter integer C_S_AXI_DATA_WIDTH	= 32
 )
 (
     // Not used anymore
@@ -77,7 +78,15 @@ module tfhe_w_master_full_v1_0_M00_AXI #
     input  wire                            M_AXI_RLAST,
     input  wire  [C_M_AXI_RUSER_WIDTH-1:0] M_AXI_RUSER,
     input  wire                            M_AXI_RVALID,
-    output wire                            M_AXI_RREADY
+    output wire                            M_AXI_RREADY,
+
+    // --------------- CONTROLL REGS ------------------------------
+    input wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_0,
+	input wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_1,
+	output wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_2,
+	output wire [C_S_AXI_DATA_WIDTH-1 : 0] host_data_address_3,
+
+	input wire start_pbs
 );
 
 //
@@ -124,7 +133,7 @@ wire                          tfhe_rready;
 // ================================================================
 
 // ---------------- WRITE ----------------
-assign M_AXI_AWADDR  = tfhe_awaddr;
+assign M_AXI_AWADDR  = tfhe_awaddr; //This needs to be connected to the address going to the controller [host_data_address_3]
 assign M_AXI_AWLEN   = C_M_AXI_BURST_LEN - 1;
 assign M_AXI_AWSIZE  = $clog2(C_M_AXI_DATA_WIDTH/8);
 assign M_AXI_AWBURST = 2'b01;   // INCR
@@ -137,7 +146,7 @@ assign M_AXI_WLAST   = tfhe_wlast;
 assign M_AXI_BREADY  = tfhe_bready;
 
 // ---------------- READ ----------------
-assign M_AXI_ARADDR  = tfhe_araddr;
+assign M_AXI_ARADDR  = tfhe_araddr; //This needs to be connected to the address coming from the controller [host_data_address_2]
 assign M_AXI_ARVALID = tfhe_arvalid;
 assign M_AXI_ARLEN   = C_M_AXI_BURST_LEN - 1;
 assign M_AXI_ARSIZE  = $clog2(C_M_AXI_DATA_WIDTH/8);
@@ -148,7 +157,7 @@ assign M_AXI_RREADY  = tfhe_rready;
 
 //
 // ================================================================
-// INSTANTIATE UPDATED VHDL WRAPPER ( WRITE + READ)
+// UPDATED VHDL WRAPPER ( WRITE + READ)
 // ================================================================
 tfhe_pbs_accelerator_axi #(
     .C_M_AXI_ADDR_WIDTH (C_M_AXI_ADDR_WIDTH),
@@ -157,6 +166,7 @@ tfhe_pbs_accelerator_axi #(
 ) u_tfhe (
     .i_clk     (M_AXI_ACLK),
     .i_reset_n (M_AXI_ARESETN),
+    .start_pbs (start_pbs),
 
     // ------------ READ ------------
     .M_AXI_ARADDR  (tfhe_araddr),
