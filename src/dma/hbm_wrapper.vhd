@@ -15,7 +15,7 @@ use work.processor_utils.all;
 --                     i_axi_sel
 
 
-entity hbm_wrapper_hbm is
+entity hbm_w is
   port (
 
     -- AXI select
@@ -35,7 +35,7 @@ entity hbm_wrapper_hbm is
 	i_read_pkgs          : in  hbm_ps_in_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
 	o_write_pkgs         : out hbm_ps_out_write_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
 	o_read_pkgs          : out hbm_ps_out_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
-	o_initial_init_ready : out std_ulogic
+	o_initial_init_ready : out std_ulogic;
 
 
     ------------------------------------------------------------------
@@ -612,7 +612,7 @@ entity hbm_wrapper_hbm is
   );
 end entity;
 
-architecture rtl of hbm_wrapper_hbm is
+architecture rtl of hbm_w is
 
 begin
 
