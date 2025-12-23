@@ -43,7 +43,7 @@ entity hbm_w is
     ------------------------------------------------------------------
     HBM_REF_CLK_0       : in  std_logic;                                 -- 100 MHz, drives a PLL. Must be sourced from a MMCM/BUFG
 
-	-- AXI_00_ACLK         : in  std_logic;                                 -- 450 MHz
+	AXI_00_ACLK         : in  std_logic;                                 -- 450 MHz
 	-- AXI_00_ARESET_N     : in  std_logic;                                 -- set to 0 to reset. Reset before start of data traffic
 	-- start addr. must be 128-bit aligned, size must be multiple of 128bit
 	AXI_00_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0); -- bit 32 selects hbm stack, 31:28 selct AXI port, 27:5 addr, 4:0 unused
@@ -81,7 +81,7 @@ entity hbm_w is
 	AXI_00_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);              --Write response: 00 - OK, 01 - exclusive access OK, 10 - slave error, 11 decode error
 	AXI_00_BVALID       : out std_logic;                                 --"Write response ready"
 
-	-- AXI_01_ACLK         : in  std_logic;
+	AXI_01_ACLK         : in  std_logic;
 	-- AXI_01_ARESET_N     : in  std_logic;
 	AXI_01_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_01_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -115,7 +115,7 @@ entity hbm_w is
 	AXI_01_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_01_BVALID       : out std_logic;
 
-	-- AXI_02_ACLK         : in  std_logic;
+	AXI_02_ACLK         : in  std_logic;
 	-- AXI_02_ARESET_N     : in  std_logic;
 	AXI_02_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_02_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -149,7 +149,7 @@ entity hbm_w is
 	AXI_02_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_02_BVALID       : out std_logic;
 
-	-- AXI_03_ACLK         : in  std_logic;
+	AXI_03_ACLK         : in  std_logic;
 	-- AXI_03_ARESET_N     : in  std_logic;
 	AXI_03_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_03_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -183,7 +183,7 @@ entity hbm_w is
 	AXI_03_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_03_BVALID       : out std_logic;
 
-	-- AXI_04_ACLK         : in  std_logic;
+	AXI_04_ACLK         : in  std_logic;
 	-- AXI_04_ARESET_N     : in  std_logic;
 	AXI_04_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_04_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -217,7 +217,7 @@ entity hbm_w is
 	AXI_04_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_04_BVALID       : out std_logic;
 
-	-- AXI_05_ACLK         : in  std_logic;
+	AXI_05_ACLK         : in  std_logic;
 	-- AXI_05_ARESET_N     : in  std_logic;
 	AXI_05_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_05_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -251,7 +251,7 @@ entity hbm_w is
 	AXI_05_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_05_BVALID       : out std_logic;
 
-	-- AXI_06_ACLK         : in  std_logic;
+	AXI_06_ACLK         : in  std_logic;
 	-- AXI_06_ARESET_N     : in  std_logic;
 	AXI_06_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_06_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -285,7 +285,7 @@ entity hbm_w is
 	AXI_06_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_06_BVALID       : out std_logic;
 
-	-- AXI_07_ACLK         : in  std_logic;
+	AXI_07_ACLK         : in  std_logic;
 	-- AXI_07_ARESET_N     : in  std_logic;
 	AXI_07_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_07_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -319,7 +319,7 @@ entity hbm_w is
 	AXI_07_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_07_BVALID       : out std_logic;
 
-	-- AXI_08_ACLK         : in  std_logic;
+	AXI_08_ACLK         : in  std_logic;
 	-- AXI_08_ARESET_N     : in  std_logic;
 	AXI_08_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_08_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -353,7 +353,7 @@ entity hbm_w is
 	AXI_08_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_08_BVALID       : out std_logic;
 
-	-- AXI_09_ACLK         : in  std_logic;
+	AXI_09_ACLK         : in  std_logic;
 	-- AXI_09_ARESET_N     : in  std_logic;
 	AXI_09_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_09_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -387,7 +387,7 @@ entity hbm_w is
 	AXI_09_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_09_BVALID       : out std_logic;
 
-	-- AXI_10_ACLK         : in  std_logic;
+	AXI_10_ACLK         : in  std_logic;
 	-- AXI_10_ARESET_N     : in  std_logic;
 	AXI_10_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_10_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -421,7 +421,7 @@ entity hbm_w is
 	AXI_10_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_10_BVALID       : out std_logic;
 
-	-- AXI_11_ACLK         : in  std_logic;
+	AXI_11_ACLK         : in  std_logic;
 	-- AXI_11_ARESET_N     : in  std_logic;
 	AXI_11_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_11_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -455,7 +455,7 @@ entity hbm_w is
 	AXI_11_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_11_BVALID       : out std_logic;
 
-	-- AXI_12_ACLK         : in  std_logic;
+	AXI_12_ACLK         : in  std_logic;
 	-- AXI_12_ARESET_N     : in  std_logic;
 	AXI_12_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_12_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -489,7 +489,7 @@ entity hbm_w is
 	AXI_12_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_12_BVALID       : out std_logic;
 
-	-- AXI_13_ACLK         : in  std_logic;
+	AXI_13_ACLK         : in  std_logic;
 	-- AXI_13_ARESET_N     : in  std_logic;
 	AXI_13_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_13_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -523,7 +523,7 @@ entity hbm_w is
 	AXI_13_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_13_BVALID       : out std_logic;
 
-	-- AXI_14_ACLK         : in  std_logic;
+	AXI_14_ACLK         : in  std_logic;
 	-- AXI_14_ARESET_N     : in  std_logic;
 	AXI_14_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_14_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -557,7 +557,7 @@ entity hbm_w is
 	AXI_14_BRESP        : out std_logic_vector(hbm_resp_bit_width-1 downto 0);
 	AXI_14_BVALID       : out std_logic;
 
-	-- AXI_15_ACLK         : in  std_logic;
+	AXI_15_ACLK         : in  std_logic;
 	-- AXI_15_ARESET_N     : in  std_logic;
 	AXI_15_ARADDR       : in  std_logic_vector(hbm_addr_width-1 downto 0);
 	AXI_15_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width-1 downto 0);
@@ -625,7 +625,7 @@ begin
 		HBM_REF_CLK_0       => i_clk_ref,
 		-- AXI in short: the party that sends the data sets valid='1', the party that receives the data indicates that through ready='1'
 		-- here we transmit read/write-address and the write-data and we receive the read-data
-		AXI_00_ACLK         => i_clk,
+		AXI_00_ACLK         => AXI_00_ACLK,
 		AXI_00_ARESET_N     => i_reset_n,
 		AXI_00_ARADDR       => AXI_00_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(0).araddr),
 		AXI_00_ARBURST      => AXI_00_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -660,7 +660,7 @@ begin
 		AXI_00_BVALID       => AXI_00_BVALID when i_axi_sel = '1' else o_write_pkgs(0).bvalid,
 
 		-- the outputs response_id, read_last, read_valid and write_ready should be the same for all banks, so we dont set them
-		AXI_01_ACLK         => i_clk,
+		AXI_01_ACLK         => AXI_01_ACLK,
 		AXI_01_ARESET_N     => i_reset_n,
 		AXI_01_ARADDR       => AXI_01_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(1).araddr),
 		AXI_01_ARBURST      => AXI_01_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -694,7 +694,7 @@ begin
 		AXI_01_BRESP        => AXI_01_BRESP when i_axi_sel = '1' else o_write_pkgs(1).bresp,
 		AXI_01_BVALID       => AXI_01_BVALID when i_axi_sel = '1' else o_write_pkgs(1).bvalid,
 
-		AXI_02_ACLK         => i_clk,
+		AXI_02_ACLK         => AXI_02_ACLK,
 		AXI_02_ARESET_N     => i_reset_n,
 		AXI_02_ARADDR       => AXI_02_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(2).araddr),
 		AXI_02_ARBURST      => AXI_02_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -728,7 +728,7 @@ begin
 		AXI_02_BRESP        => AXI_02_BRESP when i_axi_sel = '1' else o_write_pkgs(2).bresp,
 		AXI_02_BVALID       => AXI_02_BVALID when i_axi_sel = '1' else o_write_pkgs(2).bvalid,
 
-		AXI_03_ACLK         => i_clk,
+		AXI_03_ACLK         => AXI_03_ACLK,
 		AXI_03_ARESET_N     => i_reset_n,
 		AXI_03_ARADDR       => AXI_03_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(3).araddr),
 		AXI_03_ARBURST      => AXI_03_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -762,7 +762,7 @@ begin
 		AXI_03_BRESP        => AXI_03_BRESP when i_axi_sel = '1' else o_write_pkgs(3).bresp,
 		AXI_03_BVALID       => AXI_03_BVALID when i_axi_sel = '1' else o_write_pkgs(3).bvalid,
 
-		AXI_04_ACLK         => i_clk,
+		AXI_04_ACLK         => AXI_04_ACLK,
 		AXI_04_ARESET_N     => i_reset_n,
 		AXI_04_ARADDR       => std_logic_vector(i_read_pkgs(4).araddr),
 		AXI_04_ARBURST      => std_logic_vector(hbm_burstmode),
@@ -796,7 +796,7 @@ begin
 		AXI_04_BRESP        => o_write_pkgs(4).bresp,
 		AXI_04_BVALID       => o_write_pkgs(4).bvalid,
 
-		AXI_05_ACLK         => i_clk,
+		AXI_05_ACLK         => AXI_05_ACLK,
 		AXI_05_ARESET_N     => i_reset_n,
 		AXI_05_ARADDR       => AXI_05_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(5).araddr),
 		AXI_05_ARBURST      => AXI_05_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -830,7 +830,7 @@ begin
 		AXI_05_BRESP        => AXI_05_BRESP when i_axi_sel = '1' else o_write_pkgs(5).bresp,
 		AXI_05_BVALID       => AXI_05_BVALID when i_axi_sel = '1' else o_write_pkgs(5).bvalid,
 
-		AXI_06_ACLK         => i_clk,
+		AXI_06_ACLK         => AXI_06_ACLK,
 		AXI_06_ARESET_N     => i_reset_n,
 		AXI_06_ARADDR       => AXI_06_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(6).araddr),
 		AXI_06_ARBURST      => AXI_06_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -864,7 +864,7 @@ begin
 		AXI_06_BRESP        => AXI_06_BRESP when i_axi_sel = '1' else o_write_pkgs(6).bresp,
 		AXI_06_BVALID       => AXI_06_BVALID when i_axi_sel = '1' else o_write_pkgs(6).bvalid,
 
-		AXI_07_ACLK         => i_clk,
+		AXI_07_ACLK         => AXI_07_ACLK,
 		AXI_07_ARESET_N     => i_reset_n,
 		AXI_07_ARADDR       => AXI_07_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(7).araddr),
 		AXI_07_ARBURST      => AXI_07_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -898,7 +898,7 @@ begin
 		AXI_07_BRESP        => AXI_07_BRESP when i_axi_sel = '1' else o_write_pkgs(7).bresp,
 		AXI_07_BVALID       => AXI_07_BVALID when i_axi_sel = '1' else o_write_pkgs(7).bvalid,
 
-		AXI_08_ACLK         => i_clk,
+		AXI_08_ACLK         => AXI_08_ACLK,
 		AXI_08_ARESET_N     => i_reset_n,
 		AXI_08_ARADDR       => AXI_08_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(8).araddr),
 		AXI_08_ARBURST      => AXI_08_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -932,7 +932,7 @@ begin
 		AXI_08_BRESP        => AXI_08_BRESP when i_axi_sel = '1' else o_write_pkgs(8).bresp,
 		AXI_08_BVALID       => AXI_08_BVALID when i_axi_sel = '1' else o_write_pkgs(8).bvalid,
 
-		AXI_09_ACLK         => i_clk,
+		AXI_09_ACLK         => AXI_09_ACLK,
 		AXI_09_ARESET_N     => i_reset_n,
 		AXI_09_ARADDR       => AXI_09_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(9).araddr),
 		AXI_09_ARBURST      => AXI_09_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -966,7 +966,7 @@ begin
 		AXI_09_BRESP        => AXI_09_BRESP when i_axi_sel = '1' else o_write_pkgs(9).bresp,
 		AXI_09_BVALID       => AXI_09_BVALID when i_axi_sel = '1' else o_write_pkgs(9).bvalid,
 
-		AXI_10_ACLK         => i_clk,
+		AXI_10_ACLK         => AXI_10_ACLK,
 		AXI_10_ARESET_N     => i_reset_n,
 		AXI_10_ARADDR       => AXI_10_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(10).araddr),
 		AXI_10_ARBURST      => AXI_10_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -1000,7 +1000,7 @@ begin
 		AXI_10_BRESP        => AXI_10_BRESP when i_axi_sel = '1' else o_write_pkgs(10).bresp,
 		AXI_10_BVALID       => AXI_10_BVALID when i_axi_sel = '1' else o_write_pkgs(10).bvalid,
 
-		AXI_11_ACLK         => i_clk,
+		AXI_11_ACLK         => AXI_11_ACLK,
 		AXI_11_ARESET_N     => i_reset_n,
 		AXI_11_ARADDR       => AXI_11_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(11).araddr),
 		AXI_11_ARBURST      => AXI_11_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -1034,7 +1034,7 @@ begin
 		AXI_11_BRESP        => AXI_11_BRESP when i_axi_sel = '1' else o_write_pkgs(11).bresp,
 		AXI_11_BVALID       => AXI_11_BVALID when i_axi_sel = '1' else o_write_pkgs(11).bvalid,
 
-		AXI_12_ACLK         => i_clk,
+		AXI_12_ACLK         => AXI_12_ACLK,
 		AXI_12_ARESET_N     => i_reset_n,
 		AXI_12_ARADDR       => AXI_12_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(12).araddr),
 		AXI_12_ARBURST      => AXI_12_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -1068,7 +1068,7 @@ begin
 		AXI_12_BRESP        => AXI_12_BRESP when i_axi_sel = '1' else o_write_pkgs(12).bresp,
 		AXI_12_BVALID       => AXI_12_BVALID when i_axi_sel = '1' else o_write_pkgs(12).bvalid,
 
-		AXI_13_ACLK         => i_clk,
+		AXI_13_ACLK         => AXI_13_ACLK,
 		AXI_13_ARESET_N     => i_reset_n,
 		AXI_13_ARADDR       => AXI_13_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(13).araddr),
 		AXI_13_ARBURST      => AXI_13_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -1102,7 +1102,7 @@ begin
 		AXI_13_BRESP        => AXI_13_BRESP when i_axi_sel = '1' else o_write_pkgs(13).bresp,
 		AXI_13_BVALID       => AXI_13_BVALID when i_axi_sel = '1' else o_write_pkgs(13).bvalid,
 
-		AXI_14_ACLK         => i_clk,
+		AXI_14_ACLK         => AXI_14_ACLK,
 		AXI_14_ARESET_N     => i_reset_n,
 		AXI_14_ARADDR       => AXI_14_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(14).araddr),
 		AXI_14_ARBURST      => AXI_14_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),
@@ -1136,7 +1136,7 @@ begin
 		AXI_14_BRESP        => AXI_14_BRESP when i_axi_sel = '1' else o_write_pkgs(14).bresp,
 		AXI_14_BVALID       => AXI_14_BVALID when i_axi_sel = '1' else o_write_pkgs(14).bvalid,
 
-		AXI_15_ACLK         => i_clk,
+		AXI_15_ACLK         => AXI_15_ACLK,
 		AXI_15_ARESET_N     => i_reset_n,
 		AXI_15_ARADDR       => AXI_15_ARADDR when i_axi_sel = '1' else std_logic_vector(i_read_pkgs(15).araddr),
 		AXI_15_ARBURST      => AXI_15_ARBURST when i_axi_sel = '1' else std_logic_vector(hbm_burstmode),

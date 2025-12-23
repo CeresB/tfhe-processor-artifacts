@@ -756,6 +756,40 @@
         output wire [HBM_RESP_BIT_WIDTH-1:0]        AXI_15_BRESP,
         output wire                         AXI_15_BVALID,
 
+		input  wire                         AXI_00_ACLK,
+		input  wire                         AXI_01_ACLK,
+		input  wire                         AXI_02_ACLK,
+		input  wire                         AXI_03_ACLK,
+		input  wire                         AXI_04_ACLK,
+		input  wire                         AXI_05_ACLK,
+		input  wire                         AXI_06_ACLK,
+		input  wire                         AXI_07_ACLK,
+		input  wire                         AXI_08_ACLK,
+		input  wire                         AXI_09_ACLK,
+		input  wire                         AXI_10_ACLK,
+		input  wire                         AXI_11_ACLK,
+		input  wire                         AXI_12_ACLK,
+		input  wire                         AXI_13_ACLK,
+		input  wire                         AXI_14_ACLK,
+		input  wire                         AXI_15_ACLK,
+
+		// input  wire                         AXI_00_ARESET_N,
+		// input  wire                         AXI_01_ARESET_N,
+		// input  wire                         AXI_02_ARESET_N,
+		// input  wire                         AXI_03_ARESET_N,
+		// input  wire                         AXI_04_ARESET_N,
+		// input  wire                         AXI_05_ARESET_N,
+		// input  wire                         AXI_06_ARESET_N,
+		// input  wire                         AXI_07_ARESET_N,
+		// input  wire                         AXI_08_ARESET_N,
+		// input  wire                         AXI_09_ARESET_N,
+		// input  wire                         AXI_10_ARESET_N,
+		// input  wire                         AXI_11_ARESET_N,
+		// input  wire                         AXI_12_ARESET_N,
+		// input  wire                         AXI_13_ARESET_N,
+		// input  wire                         AXI_14_ARESET_N,
+		// input  wire                         AXI_15_ARESET_N,
+
 		// --------------------------------------------------
 		// APB / Status
 		// --------------------------------------------------
@@ -876,6 +910,23 @@
 		// External AXI master – common
 		// --------------------------------------------------
 		.HBM_REF_CLK_0              (HBM_REF_CLK_0),
+
+		.AXI_00_ACLK				(AXI_00_ACLK),
+		.AXI_01_ACLK				(AXI_01_ACLK),
+		.AXI_02_ACLK				(AXI_02_ACLK),	
+		.AXI_03_ACLK				(AXI_03_ACLK),
+		.AXI_04_ACLK				(AXI_04_ACLK),
+		.AXI_05_ACLK				(AXI_05_ACLK),
+		.AXI_06_ACLK				(AXI_06_ACLK),
+		.AXI_07_ACLK				(AXI_07_ACLK),
+		.AXI_08_ACLK				(AXI_08_ACLK),
+		.AXI_09_ACLK				(AXI_09_ACLK),
+		.AXI_10_ACLK				(AXI_10_ACLK),
+		.AXI_11_ACLK				(AXI_11_ACLK),
+		.AXI_12_ACLK				(AXI_12_ACLK),
+		.AXI_13_ACLK				(AXI_13_ACLK),
+		.AXI_14_ACLK				(AXI_14_ACLK),
+		.AXI_15_ACLK				(AXI_15_ACLK),
 
 		// --------------------------------------------------
 		// AXI_00
