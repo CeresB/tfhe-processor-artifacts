@@ -67,7 +67,7 @@
 	)
 	(
 		// Users to add ports here
-		input wire  tfhe_clk,
+		// input wire  tfhe_clk,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -773,24 +773,24 @@
 		input  wire                         AXI_14_ACLK,
 		input  wire                         AXI_15_ACLK,
 
-		input  wire                         ARESET_N,
+		// input  wire                         ARESET_N,
 
-		// input  wire                         AXI_00_ARESET_N,
-		// input  wire                         AXI_01_ARESET_N,
-		// input  wire                         AXI_02_ARESET_N,
-		// input  wire                         AXI_03_ARESET_N,
-		// input  wire                         AXI_04_ARESET_N,
-		// input  wire                         AXI_05_ARESET_N,
-		// input  wire                         AXI_06_ARESET_N,
-		// input  wire                         AXI_07_ARESET_N,
-		// input  wire                         AXI_08_ARESET_N,
-		// input  wire                         AXI_09_ARESET_N,
-		// input  wire                         AXI_10_ARESET_N,
-		// input  wire                         AXI_11_ARESET_N,
-		// input  wire                         AXI_12_ARESET_N,
-		// input  wire                         AXI_13_ARESET_N,
-		// input  wire                         AXI_14_ARESET_N,
-		// input  wire                         AXI_15_ARESET_N,
+		input  wire                         AXI_00_ARESET_N,
+		input  wire                         AXI_01_ARESET_N,
+		input  wire                         AXI_02_ARESET_N,
+		input  wire                         AXI_03_ARESET_N,
+		input  wire                         AXI_04_ARESET_N,
+		input  wire                         AXI_05_ARESET_N,
+		input  wire                         AXI_06_ARESET_N,
+		input  wire                         AXI_07_ARESET_N,
+		input  wire                         AXI_08_ARESET_N,
+		input  wire                         AXI_09_ARESET_N,
+		input  wire                         AXI_10_ARESET_N,
+		input  wire                         AXI_11_ARESET_N,
+		input  wire                         AXI_12_ARESET_N,
+		input  wire                         AXI_13_ARESET_N,
+		input  wire                         AXI_14_ARESET_N,
+		input  wire                         AXI_15_ARESET_N,
 
 		// --------------------------------------------------
 		// APB / Status
@@ -893,7 +893,7 @@
 		// --------------------------------------------------
 		// Global signals
 		// --------------------------------------------------
-		.RESET_N                 (RESET_N),
+		// .RESET_N                 (RESET_N),
 
 
 		// --------------------------------------------------
@@ -926,6 +926,23 @@
 		.AXI_13_ACLK				(AXI_13_ACLK),
 		.AXI_14_ACLK				(AXI_14_ACLK),
 		.AXI_15_ACLK				(AXI_15_ACLK),
+
+		.AXI_00_ARESET_N			(AXI_00_ARESET_N),
+		.AXI_01_ARESET_N			(AXI_01_ARESET_N),
+		.AXI_02_ARESET_N			(AXI_02_ARESET_N),
+		.AXI_03_ARESET_N			(AXI_03_ARESET_N),
+		.AXI_04_ARESET_N			(AXI_04_ARESET_N),
+		.AXI_05_ARESET_N			(AXI_05_ARESET_N),
+		.AXI_06_ARESET_N			(AXI_06_ARESET_N),
+		.AXI_07_ARESET_N			(AXI_07_ARESET_N),
+		.AXI_08_ARESET_N			(AXI_08_ARESET_N),
+		.AXI_09_ARESET_N			(AXI_09_ARESET_N),
+		.AXI_10_ARESET_N			(AXI_10_ARESET_N),
+		.AXI_11_ARESET_N			(AXI_11_ARESET_N),
+		.AXI_12_ARESET_N			(AXI_12_ARESET_N),
+		.AXI_13_ARESET_N			(AXI_13_ARESET_N),
+		.AXI_14_ARESET_N			(AXI_14_ARESET_N),
+		.AXI_15_ARESET_N			(AXI_15_ARESET_N),
 
 		// --------------------------------------------------
 		// AXI_00
