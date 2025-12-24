@@ -21,6 +21,7 @@ module tfhe_w_controller #
   output wire [C_S_AXI_DATA_WIDTH-1:0] host_wr_addr,
   output wire [C_S_AXI_DATA_WIDTH-1:0] host_wr_len,
   output wire                          start_pbs,
+  output wire [1:0]                    hbm_select,
 
   // --------------------------------------------------
   // AXI4-Lite interface
@@ -109,6 +110,12 @@ module tfhe_w_controller #
       axi_bvalid  <= 1'b0;
       axi_bresp   <= 2'b00;
       axi_awaddr  <= 0;
+      slv_reg0    <= 0;
+      slv_reg1    <= 0;
+      slv_reg2    <= 0;
+      slv_reg3    <= 0;
+      slv_reg4    <= 0;
+      slv_reg5    <= 0;
       state_write <= WIdle;
     end else begin
       case (state_write)
@@ -237,6 +244,10 @@ module tfhe_w_controller #
     (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS-1:ADDR_LSB] == 3'h4) ? slv_reg4 :
     (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS-1:ADDR_LSB] == 3'h5) ? slv_reg5 :
     32'd0;
+
+  assign start_pbs    = slv_reg0[0];
+  assign hbm_select   = slv_reg0[2:1];
+
 
   // // ---------------- USER LED LOGIC (unchanged) ----------------
   // always @(posedge S_AXI_ACLK) begin

@@ -1,6 +1,6 @@
 
 ################################################################
-# This is a generated script based on design: xdma_hbm
+# This is a generated script based on design: tfhe_pu_bd
 #
 # Though there are limitations about the generated script,
 # the main purpose of this utility is to make learning
@@ -63,7 +63,7 @@ if { $list_projs eq "" } {
 
 # CHANGE DESIGN NAME HERE
 variable design_name
-set design_name xdma_hbm
+set design_name tfhe_pu_bd
 
 # This script was generated for a remote BD. To create a non-remote design,
 # change the variable <run_remote_bd_flow> to <0>.

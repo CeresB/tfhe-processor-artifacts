@@ -1439,6 +1439,7 @@
 	wire pbs_busy;
 	wire pbs_done;
 	wire start_pbs;
+	wire [1:0] hbm_select;
 
 // Instantiation of Axi Bus Interface S00_AXI
 	tfhe_w_controller #(
@@ -1483,7 +1484,8 @@
 
 	.pbs_busy     (pbs_busy), //from the TFHE processor
 	.pbs_done     (pbs_done), //from the TFHE processor
-	.start_pbs    (start_pbs) //from the controller
+	.start_pbs    (start_pbs), //from the controller
+	.hbm_select   (hbm_select) //from the controller
 	);
 
 
@@ -1508,6 +1510,7 @@
 		.pbs_busy     (pbs_busy), //from the TFHE processor
 		.pbs_done     (pbs_done), //from the TFHE processor
 		.start_pbs    (start_pbs) //from the controller
+		
 
 	);
 
@@ -1515,24 +1518,11 @@
 		// --------------------------------------------------
 		// AXI select
 		// --------------------------------------------------
-		.i_axi_sel                 (2'b0), // Only HBM-AXI4 for now
+		.i_axi_sel                 (hbm_select),
 
 		// --------------------------------------------------
-		// Global signals
+		// TFHE processor clock
 		// --------------------------------------------------
-		// .RESET_N                 (RESET_N),
-
-
-		// --------------------------------------------------
-		// High-throughput TFHE interface
-		// // --------------------------------------------------
-		// .i_write_pkgs              (i_write_pkgs),
-		// .i_read_pkgs               (i_read_pkgs),
-		// .o_write_pkgs              (o_write_pkgs),
-		// .o_read_pkgs               (o_read_pkgs),
-		// .o_initial_init_ready      (o_initial_init_ready),
-
-
 		.TFHE_CLK				  (TFHE_CLK),
 
 		// --------------------------------------------------
