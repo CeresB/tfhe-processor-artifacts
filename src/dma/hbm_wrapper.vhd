@@ -30,6 +30,7 @@ entity hbm_w is
 	-- i_clk_apb            : in  std_ulogic;
 	-- RESET_N            : in  std_ulogic;
 	-- RESET_N_apb        : in  std_ulogic;
+	TFHE_CLK	   : in  std_logic;
 
 
 
@@ -646,6 +647,8 @@ architecture rtl of hbm_w is
 	signal o_read_pkgs          : hbm_ps_out_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
 	signal o_initial_init_ready : std_ulogic;
 
+	signal TFHE_RESET_N : std_ulogic;
+
 begin
 
 
@@ -1234,8 +1237,8 @@ begin
 
 	u_pbs_accel : entity work.tfhe_pbs_accelerator
 		port map (
-			i_clk               => HBM_REF_CLK_0,
-			i_reset_n           => AXI_00_ARESET_N,
+			i_clk               => TFHE_CLK,
+			i_reset_n           => TFHE_RESET_N,
 			i_ram_coeff_idx     => lwe_n_buf_rq_idx,
 			i_ai_hbm_out        => ai_hbm_out,
 			i_bsk_hbm_out       => bsk_hbm_out,
@@ -1256,7 +1259,7 @@ begin
 		
 		u_pbs_lwe_to_hbm : entity work.pbs_lwe_n_storage_read_to_hbm
 			port map (
-				i_clk           => HBM_REF_CLK_0,
+				i_clk           => TFHE_CLK,
 				i_coeffs        => lwe_n_buf_out,
 				i_coeffs_valid  => lwe_n_buf_out_valid,
 				i_reset         => lwe_n_buf_write_next_reset,

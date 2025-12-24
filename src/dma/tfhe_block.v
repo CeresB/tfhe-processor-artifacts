@@ -67,7 +67,7 @@
 	)
 	(
 		// Users to add ports here
-		// input wire  tfhe_clk,
+		input wire  TFHE_CLK,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -904,6 +904,7 @@
 		// .o_write_pkgs              (o_write_pkgs),
 		// .o_read_pkgs               (o_read_pkgs),
 		// .o_initial_init_ready      (o_initial_init_ready),
+		.TFHE_CLK				  (TFHE_CLK),
 
 		// --------------------------------------------------
 		// External AXI master – common
