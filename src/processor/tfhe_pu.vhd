@@ -2823,15 +2823,15 @@ begin
 
 		
 		u_pbs_lwe_to_hbm : entity work.pbs_lwe_n_storage_read_to_hbm
-			port map (
-				i_clk           => TFHE_CLK,
-				i_coeffs        => lwe_n_buf_out,
-				i_coeffs_valid  => lwe_n_buf_out_valid,
-				i_reset         => lwe_n_buf_write_next_reset,
-				i_hbm_write_out => hbm_write_out_pkgs_stack_1(channel_result_idx),
-				o_hbm_write_in  => hbm_write_in_pkgs_stack_1(channel_result_idx),
-				o_ram_coeff_idx => lwe_n_buf_rq_idx
-			);
+		port map (
+			i_clk           => TFHE_CLK,
+			i_coeffs        => lwe_n_buf_out,
+			i_coeffs_valid  => lwe_n_buf_out_valid,
+			i_reset         => lwe_n_buf_write_next_reset,
+			i_hbm_write_out => hbm_write_out_pkgs_stack_1(channel_result_idx),
+			o_hbm_write_in  => hbm_write_in_pkgs_stack_1(channel_result_idx),
+			o_ram_coeff_idx => lwe_n_buf_rq_idx
+		);
 
 
 end architecture;

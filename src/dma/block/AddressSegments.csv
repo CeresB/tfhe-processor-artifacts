@@ -1,0 +1,47 @@
+######################################################################################
+# This is a generated CSV file representing the addressing in design tfhe_pu_bd
+#
+# Format:
+# Master Segment Name, Address Space, Slave Segment, Offset, Range ...
+#      Excluded (optional), Included (optional), Unassigned (optional)
+######################################################################################
+
+# 
+# Assignments in Address Space /xdma_0/M_AXI
+#
+SEG_tfhe_block_0_reg0     ,/xdma_0/M_AXI,/tfhe_block_0/AXI_00/reg0,0x00000000,256M
+SEG_tfhe_block_0_reg0_1   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_01/reg0,0x10000000,256M
+SEG_tfhe_block_0_reg0_2   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_02/reg0,0x20000000,256M
+SEG_tfhe_block_0_reg0_3   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_03/reg0,0x30000000,256M
+SEG_tfhe_block_0_reg0_4   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_04/reg0,0x40000000,256M
+SEG_tfhe_block_0_reg0_5   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_05/reg0,0x50000000,256M
+SEG_tfhe_block_0_reg0_6   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_06/reg0,0x60000000,256M
+SEG_tfhe_block_0_reg0_7   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_07/reg0,0x70000000,256M
+SEG_tfhe_block_0_reg0_8   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_08/reg0,0x80000000,256M
+SEG_tfhe_block_0_reg0_9   ,/xdma_0/M_AXI,/tfhe_block_0/AXI_09/reg0,0x90000000,256M
+SEG_tfhe_block_0_reg0_10  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_10/reg0,0xA0000000,256M
+SEG_tfhe_block_0_reg0_11  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_11/reg0,0xB0000000,256M
+SEG_tfhe_block_0_reg0_12  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_12/reg0,0xC0000000,256M
+SEG_tfhe_block_0_reg0_13  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_13/reg0,0xD0000000,256M
+SEG_tfhe_block_0_reg0_14  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_14/reg0,0xE0000000,256M
+SEG_tfhe_block_0_reg0_15  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_15/reg0,0xF0000000,256M
+SEG_tfhe_block_0_reg0_16  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_16/reg0,0x100000000,256M
+SEG_tfhe_block_0_reg0_17  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_17/reg0,0x110000000,256M
+SEG_tfhe_block_0_reg0_18  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_18/reg0,0x120000000,256M
+SEG_tfhe_block_0_reg0_19  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_19/reg0,0x130000000,256M
+SEG_tfhe_block_0_reg0_20  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_20/reg0,0x140000000,256M
+SEG_tfhe_block_0_reg0_21  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_21/reg0,0x150000000,256M
+SEG_tfhe_block_0_reg0_22  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_22/reg0,0x160000000,256M
+SEG_tfhe_block_0_reg0_23  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_23/reg0,0x170000000,256M
+SEG_tfhe_block_0_reg0_24  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_24/reg0,0x180000000,256M
+SEG_tfhe_block_0_reg0_25  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_25/reg0,0x190000000,256M
+SEG_tfhe_block_0_reg0_26  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_26/reg0,0x1A0000000,256M
+SEG_tfhe_block_0_reg0_27  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_27/reg0,0x1B0000000,256M
+SEG_tfhe_block_0_reg0_28  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_28/reg0,0x1C0000000,256M
+SEG_tfhe_block_0_reg0_29  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_29/reg0,0x1D0000000,256M
+SEG_tfhe_block_0_reg0_30  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_30/reg0,0x1E0000000,256M
+SEG_tfhe_block_0_reg0_31  ,/xdma_0/M_AXI,/tfhe_block_0/AXI_31/reg0,0x1F0000000,256M
+# 
+# Assignments in Address Space /xdma_0/M_AXI_LITE
+#
+SEG_tfhe_block_0_reg0,/xdma_0/M_AXI_LITE,/tfhe_block_0/s00_axi/reg0,0x00000000,4G
