@@ -45,9 +45,11 @@ Use Vivado with an appropriate license (specifically for HBM-supported FPGAs suc
    - Remove the option for external `apb interface`.
    - Under reorder, refresh and power saving options, set the traffic pattern to `LINEAR`
    - Under realibility options, disable debug interface and error correction options including the write data mask.
-3. Import the `tfhe_pu_bd` block diagram by running the following command in the TCL console:
+3. Import the `tfhe_pu_bd` block diagram to the project
+   - Copy the `src/processor/tfhe_pu_bd.tcl` to your Vivado Project folder
+   - Autogenerate the BD by running the following command in the TCL console:
    ```
-   source src/processor/tfhe_pu_bd.tcl
+   source tfhe_pu_bd.tcl
    ```
 4. Set `tfhe_pu_top` as the top module and refresh the hierarchy.
 5. Synthesize, implement, generate the bitstream, and program the FPGA.
