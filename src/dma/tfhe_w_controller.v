@@ -116,7 +116,7 @@ module tfhe_w_controller #
       axi_bvalid  <= 1'b0;
       axi_bresp   <= 2'b00;
       axi_awaddr  <= 0;
-      slv_reg0    <= 0;
+      slv_reg0    <= 0; // clear start_pbs on reset and default HBM select to host
       slv_reg1    <= 0;
       slv_reg2    <= 0;
       slv_reg3    <= 0;
@@ -161,7 +161,7 @@ module tfhe_w_controller #
   // ---------------- REGISTER WRITE ----------------
   always @(posedge S_AXI_ACLK) begin
     if (!S_AXI_ARESETN) begin
-      slv_reg0 <= 0;
+      slv_reg0 <= 0; // clear start_pbs on reset and default HBM select to host
       slv_reg1 <= 0;
       slv_reg2 <= 0;
       slv_reg3 <= 0;
@@ -273,11 +273,11 @@ module tfhe_w_controller #
   end
 
 
-  // LED logic
+  // Controller LED logic
   reg  [2:0]  led;
-  assign user_led[7] = start_pbs;
-  assign user_led[6] = pbs_busy;
-  assign user_led[5] = pbs_done;
+  assign user_led[7]   = start_pbs;
+  assign user_led[6]   = pbs_busy;
+  assign user_led[5]   = pbs_done;
   assign user_led[4:3] = hbm_select;
   assign user_led[2:0] = led;
 
@@ -285,7 +285,7 @@ module tfhe_w_controller #
   reg [2:0]  seq_led;
 
   /* free-running counter */
-  always @(posedge clk or negedge S_AXI_ARESETN) begin
+  always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN) begin
     if (!S_AXI_ARESETN)
       led_cnt <= 24'd0;
     else
@@ -293,7 +293,7 @@ module tfhe_w_controller #
   end
 
   /* LED pattern logic */
-  always @(posedge clk or negedge S_AXI_ARESETN) begin
+  always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN) begin
     if (!S_AXI_ARESETN) begin
       led     <= 3'b000;
       seq_led <= 3'b001;
