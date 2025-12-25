@@ -40,13 +40,16 @@ Use Vivado with an appropriate license (specifically for HBM-supported FPGAs suc
 
 1. Create a new project for your FPGA and import all the Verilog/SystemVerilog/VHDL modules inside the `src` folder except the modules within `testbenches`, `secondary_code`, and `deprecated` folders.
 2. Add two HBM IPs (left and right stacks) from the Vivado IP catalog and configure them with the following settings:
+   - Disable switch 0/ global addressing on stack 0/1
+   - Set the HBM memory freaquancy for the stack 0 to 500MHZ
    - Remove the option for external `apb interface`.
-   - Disable debug interface and error correction options.
+   - Under reorder, refresh and power saving options, set the traffic pattern to `LINEAR`
+   - Under realibility options, disable debug interface and error correction options including the write data mask.
 3. Import the `tfhe_pu_bd` block diagram by running the following command in the TCL console:
    ```
    source src/processor/tfhe_pu_bd.tcl
    ```
-4. Set `tfhe_pu_top` as the top module.
+4. Set `tfhe_pu_top` as the top module and refresh the hierarchy.
 5. Synthesize, implement, generate the bitstream, and program the FPGA.
 6. Follow the instructions in the README in the `host` folder for the host-side setup.
 7. Enjoy the accelerated TFHE!
