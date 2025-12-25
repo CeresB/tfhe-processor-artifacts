@@ -39,6 +39,7 @@ entity tfhe_pu is
 	-- RESET_N            : in  std_ulogic;
 	-- RESET_N_apb        : in  std_ulogic;
 	TFHE_CLK	   : in  std_logic;
+	TFHE_RESET_N : in std_ulogic;
 
 
 
@@ -1374,7 +1375,8 @@ architecture rtl of tfhe_pu is
 	signal o_read_pkgs          : hbm_ps_out_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
 	signal o_initial_init_ready : std_ulogic;
 
-	signal TFHE_RESET_N : std_ulogic;
+	
+	
 
 begin
 

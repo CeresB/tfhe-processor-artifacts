@@ -21,6 +21,7 @@ module tfhe_w_controller #
   output wire [C_S_AXI_DATA_WIDTH-1:0] host_wr_addr,
   output wire [C_S_AXI_DATA_WIDTH-1:0] host_wr_len,
   output wire                          start_pbs,
+  output wire                          tfhe_reset_n,
   output wire [1:0]                    hbm_select,
 
   // --------------------------------------------------
@@ -247,6 +248,26 @@ module tfhe_w_controller #
 
   assign start_pbs    = slv_reg0[0];
   assign hbm_select   = slv_reg0[2:1];
+
+  assign tfhe_reset_n  = o_reset_n;
+
+  reg start_pbs_d;
+  reg o_reset_n;
+
+  always @(posedge S_AXI_ACLK) begin
+      if (!S_AXI_ARESETN) begin
+          start_pbs_d <= 1'b0;
+          o_reset_n   <= 1'b0;
+      end else begin
+          start_pbs_d <= start_pbs;
+
+          // rising edge detect
+          if (!start_pbs_d && start_pbs)
+              o_reset_n <= 1'b1;
+          else if (!start_pbs)
+              o_reset_n <= 1'b0;
+      end
+  end
 
 
   // // ---------------- USER LED LOGIC (unchanged) ----------------

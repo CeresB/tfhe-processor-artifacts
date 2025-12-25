@@ -5,7 +5,7 @@
 // 
 // Create Date: 11/07/2025 04:40:09 PM
 // Design Name: 
-// Module Name: xdma_hbm_top
+// Module Name: tfhe_pu_top
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 

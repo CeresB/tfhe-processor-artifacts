@@ -1439,6 +1439,8 @@
 	wire pbs_busy;
 	wire pbs_done;
 	wire start_pbs;
+
+	wire TFHE_RESET_N;
 	wire [1:0] hbm_select;
 
 // Instantiation of Axi Bus Interface S00_AXI
@@ -1485,6 +1487,7 @@
 	.pbs_busy     (pbs_busy), //from the TFHE processor
 	.pbs_done     (pbs_done), //from the TFHE processor
 	.start_pbs    (start_pbs), //from the controller
+	.tfhe_reset_n (TFHE_RESET_N),
 	.hbm_select   (hbm_select) //from the controller
 	);
 
@@ -1524,6 +1527,7 @@
 		// TFHE processor clock
 		// --------------------------------------------------
 		.TFHE_CLK				  (TFHE_CLK),
+		.TFHE_RESET_N			  (TFHE_RESET_N),
 
 		// --------------------------------------------------
 		// External AXI master – common
