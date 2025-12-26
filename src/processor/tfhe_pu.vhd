@@ -15,7 +15,7 @@ library work;
 -- 			Packages ──────> │               │
 -- 			                 └──────^────────┘
 -- 			                        │
--- 			                    i_axi_sel[0]
+-- 			                    HBM_RW_SELECT[1:0]
 
 -- 			                 ┌───────────────┐
 -- AXI 16 to 31 from BD ───> │               │
@@ -23,14 +23,14 @@ library work;
 -- 			Packages ──────> │               │
 -- 			                 └──────^────────┘
 -- 			                        │
--- 			                    i_axi_sel[1]
+-- 			                    HBM_RW_SELECT[3:2]
 
 
 entity tfhe_pu is
   port (
 
     -- AXI select
-    i_axi_sel     : in  std_logic_vector(1 downto 0);
+    HBM_RW_SELECT     : in  std_logic_vector(3 downto 0);
 
     --- Global signals
     -- i_clk                : in  std_ulogic;
@@ -41,8 +41,9 @@ entity tfhe_pu is
 	TFHE_CLK	   : in  std_logic;
 	TFHE_RESET_N : in std_ulogic;
 
-
-
+	PBS_BUSY	   : out std_logic;
+	PBS_DONE	   : out std_logic;
+	START_PBS   : in std_logic;
 
     ------------------------------------------------------------------
     -- External AXI master (to the crossbar)
@@ -1392,6 +1393,8 @@ begin
 
 	hbm_read_out_pkgs_stack_1 <= o_read_pkgs;
 
+	PBS_BUSY <= START_PBS;
+
   ------------------------------------------------------------------
   -- HBM instance Stack 0 
   ------------------------------------------------------------------
@@ -1400,7 +1403,7 @@ begin
 			-- --------------------------------------------------
 			-- AXI select
 			-- --------------------------------------------------
-			i_axi_sel            => i_axi_sel(0),  -- Only HBM-AXI4 for now
+			HBM_RW_SELECT            => HBM_RW_SELECT(1 downto 0),  -- Only HBM-AXI4 for now
 
 			-- --------------------------------------------------
 			-- High-throughput TFHE interface
@@ -2110,7 +2113,7 @@ begin
 			-- --------------------------------------------------
 			-- AXI select
 			-- --------------------------------------------------
-			i_axi_sel            => i_axi_sel(1),  -- Only HBM-AXI4 for now
+			HBM_RW_SELECT            => HBM_RW_SELECT(3 downto 2),  -- Only HBM-AXI4 for now
 
 			-- --------------------------------------------------
 			-- High-throughput TFHE interface
@@ -2832,7 +2835,8 @@ begin
 			i_reset         => lwe_n_buf_write_next_reset,
 			i_hbm_write_out => hbm_write_out_pkgs_stack_1(channel_result_idx),
 			o_hbm_write_in  => hbm_write_in_pkgs_stack_1(channel_result_idx),
-			o_ram_coeff_idx => lwe_n_buf_rq_idx
+			o_ram_coeff_idx => lwe_n_buf_rq_idx,
+			o_done		  	=> PBS_DONE
 		);
 
 

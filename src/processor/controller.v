@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 
-module tfhe_w_controller #
+module controller #
 (
   parameter integer C_S_AXI_DATA_WIDTH = 32,
   parameter integer C_S_AXI_ADDR_WIDTH = 6   // 6 regs -> 0x00–0x14
@@ -22,7 +22,7 @@ module tfhe_w_controller #
   output wire [C_S_AXI_DATA_WIDTH-1:0] host_wr_len,
   output wire                          start_pbs,
   output wire                          tfhe_reset_n,
-  output wire [1:0]                    hbm_select,
+  output wire [3:0]                    hbm_rw_select,
 
   // --------------------------------------------------
   // User LED output
@@ -251,8 +251,23 @@ module tfhe_w_controller #
     (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS-1:ADDR_LSB] == 3'h5) ? slv_reg5 :
     32'd0;
 
+  // ---------------- CONTROL ASSIGNMENTS ----------------
+  // slv_reg0 [3:0] - control and status register
+  //  bit 0     - start_pbs
+  //  bit 1     - pbs_busy
+  //  bit 2     - pbs_done
+  //  bit 3     - reserved
+
+  // slv_reg0 [7:4] - hbm r/w select for TFHE_PU and host
+  //  bits 4     - hbm_tfhe_wr_select_stack_0
+  //  bits 5     - hbm_tfhe_rd_select_stack_0
+  //  bits 6     - hbm_tfhe_wr_select_stack_1
+  //  bits 7     - hbm_tfhe_rd_select_stack_1
+
+  // slv_reg0 [31:8] - reserved
+
   assign start_pbs    = slv_reg0[0];
-  assign hbm_select   = slv_reg0[2:1];
+  assign hbm_rw_select   = slv_reg0[7:4];
 
   assign tfhe_reset_n  = o_reset_n;
 
@@ -278,7 +293,7 @@ module tfhe_w_controller #
   assign user_led[7]   = start_pbs;
   assign user_led[6]   = pbs_busy;
   assign user_led[5]   = pbs_done;
-  assign user_led[4:3] = hbm_select;
+  assign user_led[4:3] = {hbm_rw_select[2],hbm_rw_select[0]}; // Only show write select status
   assign user_led[2:0] = led;
 
   reg [23:0] led_cnt;
@@ -292,7 +307,7 @@ module tfhe_w_controller #
       led_cnt <= led_cnt + 1'b1;
   end
 
-  /* LED pattern logic */
+  /* Status register update and LED pattern logic */
   always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN) begin
     if (!S_AXI_ARESETN) begin
       led     <= 3'b000;
@@ -302,6 +317,8 @@ module tfhe_w_controller #
       /* Highest priority: PBS done -> all ON */
       if (pbs_done) begin
         led <= 3'b111;
+        slv_reg0 [0] <= 1'b0;  // clear start_pbs
+        slv_reg0 [2] <= 1'b1;  // set pbs_done, host has to clear this before next PBS start
 
       /* start_pbs active -> sequential pattern */
       end else if (start_pbs) begin
@@ -314,6 +331,9 @@ module tfhe_w_controller #
       end else begin
         led <= {3{led_cnt[23]}};  // all blink together
       end
+
+      if (pbs_busy) slv_reg0 [1] <= 1'b1;  // set pbs_busy
+      else slv_reg0 [1] <= 1'b0;  // clear pbs_busy
     end
   end
 

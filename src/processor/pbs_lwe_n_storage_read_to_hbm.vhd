@@ -36,7 +36,8 @@ entity pbs_lwe_n_storage_read_to_hbm is
     i_reset             : in  std_ulogic;
     i_hbm_write_out     : in  hbm_ps_out_write_pkg;
     o_hbm_write_in      : out hbm_ps_in_write_pkg;
-    o_ram_coeff_idx     : out unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1)
+    o_ram_coeff_idx     : out unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
+    o_done              : out std_ulogic
   );
 end entity;
 
@@ -54,9 +55,12 @@ architecture Behavioral of pbs_lwe_n_storage_read_to_hbm is
   signal hbm_write_address : hbm_ps_port_memory_address;
   constant max_hbm_write_addr_offset : integer := write_blocks_in_lwe_n_ram - 1;
 
+  -- signal done_reg : std_ulogic;
+  signal wlast_int : std_ulogic;
+
 begin
 
-  coeffs2bits: for coeff_idx in 0 to out_pkg'length - 1 generate
+    coeffs2bits: for coeff_idx in 0 to out_pkg'length - 1 generate
     bits2bits: for bit_idx in 0 to out_pkg(0)'length - 1 generate
       o_hbm_write_in.wdata(coeff_idx * out_pkg(0)'length + bit_idx) <= out_pkg(coeff_idx)(bit_idx);
     end generate;
@@ -66,6 +70,8 @@ begin
   o_hbm_write_in.awlen <= std_logic_vector(to_unsigned(0, o_hbm_write_in.awlen'length));
   o_hbm_write_in.awid <= std_logic_vector(resize(hbm_write_address, o_hbm_write_in.awid'length));
   o_hbm_write_in.wdata_parity <= (others => '0');
+
+  o_done <= i_hbm_write_out.bvalid and wlast_int; -- signal done when last write of a full lwe_n batch was written to HBM
 
   pbs_result_to_ram: process (i_clk) is
   begin
@@ -82,6 +88,7 @@ begin
         o_hbm_write_in.awvalid <= '0';
         o_hbm_write_in.wvalid <= '0';
         o_hbm_write_in.wlast <= '0';
+        wlast_int <= '0';
       else
 
         if out_pkg_full='0' then
@@ -134,9 +141,11 @@ begin
             if hbm_write_address < res_base_addr+to_unsigned(max_hbm_write_addr_offset, hbm_write_address'length) then
               hbm_write_address <= hbm_write_address + to_unsigned(1, hbm_write_address'length);
               o_hbm_write_in.wlast <= '0';
+              wlast_int <= '0';
             else
               hbm_write_address <= res_base_addr;
               o_hbm_write_in.wlast <= '1';
+              wlast_int <= '1';
             end if;
           end if;
           o_hbm_write_in.awvalid <= '1';
@@ -145,11 +154,27 @@ begin
           o_hbm_write_in.awvalid <= '0';
           o_hbm_write_in.wvalid <= '0';
           o_hbm_write_in.wlast <= '0';
+          wlast_int <= '0';
         end if;
       end if;
 
       o_ram_coeff_idx <= out_write_blocks_offset + out_cnt_pbs_write_blocks_per_lwe;
     end if;
+
+    
   end process;
+
+  -- process(i_clk)
+  -- begin
+  --   if rising_edge(i_clk) then
+  --     if i_reset = '1' then
+  --       done_reg <= '0';
+  --     elsif i_hbm_write_out.bvalid = '1' and wlast_int = '1' then
+  --       done_reg <= '1';
+  --     end if;
+  --   end if;
+  -- end process;
+
+  -- o_done <= done_reg;
 
 end architecture;
