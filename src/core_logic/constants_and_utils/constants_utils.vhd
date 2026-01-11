@@ -37,7 +37,7 @@ package constants_utils is
      constant ram_style_auto       : string  := "auto";
 
      -- values you may change
-     constant log2_num_coefficients                : integer := 10; --8
+     constant log2_num_coefficients                : integer := 8; --10
      constant log2_ntt_throughput                  : integer := 4; --5;
      constant ntt_modulo_solution                  : integer := ntt_modulo_solution_default * boolean'pos(debug_mode) + ntt_modulo_solution_solinas * boolean'pos(not debug_mode); -- ntt_modulo_solution_solinas, ntt_modulo_solution_default
      constant use_karazuba                         : boolean := not debug_mode;                                                                                                    -- karazuba is only implemented for unsigned_polym_coefficient_bit_width=64. If false, default mult is used, which works for any bit width.

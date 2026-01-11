@@ -3,7 +3,9 @@
 ```sh
 cd driver/dma_ip_drivers/XDMA/linux-kernel/xdma/
 sudo make install
-sudo modprobe xdma
+sudo modprobe xdma # will need to execute on reboot if not added permenanlty to the kernel
+cd driver/dma_ip_drivers/XDMA/linux-kernel/tools/
+make
 ```
 
 
@@ -30,3 +32,24 @@ Control / Status Register (slv_reg0) — 32 bits
 
 ### Reserved for future use
 - Bits 31:8 : Reserved (must be written as 0)
+
+
+## Setting the control register
+
+First compile the controller
+
+```sh
+make
+```
+
+Then configure the processor controller
+```sh
+sudo ./reg_rw /dev/xdma0_user 0x0 0x00000000 # Host has access to HBM stacks or change the register value accordig to the above register map
+```
+
+## Test the HBM channles from host side
+
+```sh
+chmod +x dma_test.sh
+sudo ./dma_test.sh
+```
