@@ -22,13 +22,6 @@ Then configure the processor controller
 sudo ./control /dev/xdma0_user 0x0 0x00000000 # See section "Control and Status Register" below. Host has access to HBM stacks or change the register value accordig to the above register map
 ```
 
-## Test the HBM channels from host side
-
-```sh
-chmod +x dma_test.sh
-sudo ./dma_test.sh
-```
-The test should exit successfully.
 Please remember to restart your computer (not the fpga) after programming the fpga, such that the fpga can be detected as a pcie device. Furthermore, execute "sudo modprobe xdma" beforehand in case you did not add it to the kernel permanently.
 
 ## Control and Status Register
@@ -46,8 +39,7 @@ Control / Status Register (slv_reg0) — 32 bits
 - Bit 2  : DONE   - PBS operation completed (sticky, cleared on START)
 - Bit 3  : RS     - Reserved
 
-### Write/ Read select for HBM <--> TFHE processor (defaults to HOST)
-DEPRECATED!
+### Write/ Read for HBM <--> TFHE processor
 Via PCIe you have write-only access to all hbm ports. The read ports are physically not connected to PCIe.
 There is one exception to this: the result channel is read-only via PCIe, the write ports are physically not connected to PCIe.
 This construction allows arbiter-free usage of the HBM by PCIe host and the accelerator engine.
