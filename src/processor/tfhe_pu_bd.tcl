@@ -466,6 +466,33 @@ proc create_root_design { parentCell } {
 # MAIN FLOW
 ##################################################################
 
+# add and configure the left hbm stack
+create_ip -name hbm -vendor xilinx.com -library ip -version 1.0 -module_name hbm_0
+set_property -dict [list \
+CONFIG.USER_APB_EN {false} \
+CONFIG.USER_HBM_TCK_0 {250} \
+CONFIG.USER_MC0_EN_DATA_MASK {false} \
+CONFIG.USER_MC0_TRAFFIC_OPTION {Linear} \
+CONFIG.USER_SWITCH_ENABLE_00 {FALSE} \
+CONFIG.USER_XSDB_INTF_EN {FALSE} \
+] [get_ips hbm_0]
+
+# add and configure the right hbm stack
+create_ip -name hbm -vendor xilinx.com -library ip -version 1.0 -module_name hbm_1
+set_property -dict [list \
+CONFIG.USER_APB_EN {false} \
+CONFIG.USER_HBM_TCK_0 {250} \
+CONFIG.USER_MC0_EN_DATA_MASK {false} \
+CONFIG.USER_MC0_TRAFFIC_OPTION {Linear} \
+CONFIG.USER_SINGLE_STACK_SELECTION {RIGHT} \
+CONFIG.USER_SWITCH_ENABLE_00 {FALSE} \
+CONFIG.USER_XSDB_INTF_EN {FALSE} \
+] [get_ips hbm_1]
+
 create_root_design ""
 
+# set tfhe_pu_top as top module
+set_property top tfhe_pu_top [current_fileset]
 
+# refresh block design
+update_module_reference tfhe_pu_bd_tfhe_block_0_0
