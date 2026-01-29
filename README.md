@@ -1,7 +1,7 @@
 
 # Open-Source TFHE Accelerator (tfhe-PU)
 
-<img align="right" width="400" height="auto" alt="" src="images/tfhe-proc.png"/> This repository accompanies the paper [**“Towards a Functionally Complete and Parameterizable TFHE Processor”**]().  
+<img align="right" width="400" height="auto" alt="" src="images/tfhe-proc.png"/> This repository accompanies the paper [**“REDACTED”**]().  
 The design is written in a mix of **VHDL** and **SystemVerilog**, compatible with **Vivado 2024.1**.
 This is a fully fledged, parameterizable TFHE processor that connects via PCIe, enabling scalable, hardware-accelerated computation directly on encrypted data, achieving 240-480% higher bootstrapping throughput than current state-of-the-art designs. Hopefully, this will lay the foundation for the next generation of TFHE processors - moving us closer to practical, high-performance encrypted computing.   
 
@@ -101,18 +101,7 @@ Please avoid hardcoded constants to maintain flexibility across parameter sets.
 
 
 ## Citation
-
-```tex
-@misc{häusler2025functionally,
-      title={Towards a Functionally Complete and Parameterizable TFHE Processor}, 
-      author={Valentin Reyes Häusler and Gabriel Ott and Aruna Jayasena and Andreas Peter},
-      year={2025},
-      eprint={2510.23483},
-      archivePrefix={arXiv},
-      primaryClass={cs.CR},
-      url={https://arxiv.org/abs/2510.23483}, 
-}
-```
+REDACTED
 
 # License
 This project is licensed under MIT.
