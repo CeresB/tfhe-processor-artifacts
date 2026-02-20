@@ -131,8 +131,7 @@ begin
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
-                    fp_substage_resets_chain(0) <= fp_substage_resets;
-                    fp_substage_resets_chain(1 to fp_substage_resets_chain'length - 1) <= fp_substage_resets_chain(0 to fp_substage_resets_chain'length - 2);
+                    fp_substage_resets_chain <= fp_substage_resets & fp_substage_resets_chain(0 to fp_substage_resets_chain'length - 2);
                end if;
           end process;
           fp_substage_internal_resets <= fp_substage_resets_chain(fp_substage_resets_chain'length - 1);

@@ -73,6 +73,8 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
 
      signal p2_upper : half_reg;
      signal p2_lower : half_reg;
+     signal p2_minus_p2upper : full_reg;
+     signal p1_minus_carry : unsigned(0 to p1'length + 2 - 1);
 
      signal p1_plus_p2_minus_p2upper : unsigned(0 to (p1'length + 2) - 1); -- +2 for carry
 
@@ -87,14 +89,14 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
      type wait_registers_mult_result_p2 is array (natural range <>) of unsigned(0 to p2'length - 1);
      type wait_registers_mult_result_p3 is array (natural range <>) of unsigned(0 to p3'length - 1);
      constant dsp_retiming_length_no_preadder: integer := dsp_retiming_length-1;
-     signal p1_wait_regs : wait_registers_mult_result_p1(0 to dsp_retiming_length_no_preadder - 1);
-     signal p2_wait_regs : wait_registers_mult_result_p2(0 to dsp_retiming_length_no_preadder - 1);
+     signal p1_wait_regs : wait_registers_mult_result_p1(0 to dsp_retiming_length_no_preadder-1 - 1); -- -1 because no post-adder
+     signal p2_wait_regs : wait_registers_mult_result_p2(0 to dsp_retiming_length_no_preadder-1 - 1); -- -1 because no post-adder
      signal p3_wait_regs : wait_registers_mult_result_p3(0 to dsp_retiming_length_no_preadder-1 - 1); -- -1 because we need the value for the post-adder
 
-     signal p1_wait_reg_2 : wait_registers_mult_result_p1(0 to 2 - 1);
+     signal p1_wait_reg_2 : wait_registers_mult_result_p1(0 to 2+1 - 1);
 
      type half_reg_wait_regs is array (natural range <>) of half_reg;
-     signal p2_lower_wait_regs : half_reg_wait_regs(0 to 3 - 1);
+     signal p2_lower_wait_regs : half_reg_wait_regs(0 to 3+1 - 1);
      signal p2_lower_wait_regs_end : half_reg;
      signal p2_lower_wait_regs_cnt: unsigned(0 to get_bit_length(p2_lower_wait_regs'length-1-1)-1) := to_unsigned(p2_lower_wait_regs'length-1-1,get_bit_length(p2_lower_wait_regs'length-1-1)); -- another -1 because end part handles separately
 
@@ -109,7 +111,7 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
 
     type wait_regs_num is array(natural range <>) of unsigned(0 to a1_plus_a0'length-1);
     signal a0_plus_a1_buf_chain: wait_regs_num(0 to 1-1);
-    signal b1_msb_buf_chain: std_logic_vector(0 to 1+1-1);
+    signal b1_msb_buf_chain: std_logic_vector(0 to 1-1);
     signal a0_plus_a1_b1msb_shifted: unsigned(0 to a1_plus_a0'length+b1'length-1-1);
     constant zero_vals: unsigned(0 to a0_plus_a1_b1msb_shifted'length-1) := to_unsigned(0,a0_plus_a1_b1msb_shifted'length);
     signal sub_value: unsigned(0 to a0_plus_a1_b1msb_shifted'length-1);
@@ -135,7 +137,8 @@ begin
      -- buffer output?
      o_res <= res_buf;
 
-     a0_plus_a1_b1msb_shifted(0 to a1_plus_a0'length-1) <= a0_plus_a1_buf_chain(a0_plus_a1_buf_chain'length-1);
+     a0_plus_a1_b1msb_shifted(0 to a1_plus_a0'length-1) <= a1_plus_a0;
+     -- a0_plus_a1_b1msb_shifted(0 to a1_plus_a0'length-1) <= a0_plus_a1_buf_chain(a0_plus_a1_buf_chain'length-1);
      a0_plus_a1_b1msb_shifted(a1_plus_a0'length to a0_plus_a1_b1msb_shifted'length-1) <= (others=>'0');
 
      process (i_clk)
@@ -185,7 +188,10 @@ begin
                else
                 sub_value <= zero_vals;
                end if;
-                p1_plus_p2_minus_p2upper <= unsigned(std_ulogic_vector(to_unsigned(0, 2)) & std_ulogic_vector(p1)) + p2 - p2_upper - sub_value; -- extend one operand for the carry bit
+               p2_minus_p2upper <= p2 - p2_upper;
+               p1_minus_carry <= unsigned(std_ulogic_vector(to_unsigned(0, 2)) & std_ulogic_vector(p1)) - sub_value;
+                p1_plus_p2_minus_p2upper <= p1_minus_carry + p2_minus_p2upper; -- extend one operand for the carry bit
+               --  p1_plus_p2_minus_p2upper <= unsigned(std_ulogic_vector(to_unsigned(0, 2)) & std_ulogic_vector(p1)) + p2 - p2_upper - sub_value; -- extend one operand for the carry bit
 
                -- stage 4
                -- put p1_plus_p2_minus_p2upper in the post-adder of p3

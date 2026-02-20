@@ -131,7 +131,7 @@ begin
      end generate;
 
      -- the main code
-     -- karazuba_mult: mult_dsp_level
+     -- kara_mult: mult_dsp_level
      --      generic map (
      --           base_len            => base_len,
      --           dsp_retiming_length => dsp_level_retiming_registers

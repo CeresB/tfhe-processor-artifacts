@@ -97,13 +97,31 @@ architecture Behavioral of karazuba_mult is
 
      constant p2_lower_regs_rolling: boolean := true;
 
+     signal num0_buf: unsigned(0 to i_num0'length - 1);
+     signal num1_buf: unsigned(0 to i_num1'length - 1);
+
 begin
+
+     in_buf: if use_mult_karazuba_in_buffer generate
+          process (i_clk) is
+          begin
+            if rising_edge(i_clk) then
+               num0_buf <= i_num0;
+               num1_buf <= i_num1;
+            end if;
+          end process;
+     end generate;
+     no_in_buf: if not use_mult_karazuba_in_buffer generate
+          num0_buf <= i_num0;
+          num1_buf <= i_num1;
+     end generate;
+
      -- MSB is at index 0
      -- leading 0 ensures the numbers are not interpreted as negative numbers
-     a1 <= i_num0(0 to base_len - 1);
-     b1 <= i_num1(0 to base_len - 1);
-     a0 <= i_num0(base_len to i_num0'length - 1);
-     b0 <= i_num1(base_len to i_num1'length - 1);
+     a1 <= num0_buf(0 to base_len - 1);
+     b1 <= num1_buf(0 to base_len - 1);
+     a0 <= num0_buf(base_len to num0_buf'length - 1);
+     b0 <= num1_buf(base_len to num1_buf'length - 1);
      p2_upper <= (p2(0 to base_len - 1));
      p2_lower <= (p2(base_len to 2 * base_len - 1));
      p123_temp_upper <= (p123_temp(0 to p123_temp_upper'length - 1));
@@ -173,8 +191,7 @@ begin
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
-                    p2_lower_wait_regs(0) <= p2_lower;
-                    p2_lower_wait_regs(1 to p2_lower_wait_regs'length - 1) <= p2_lower_wait_regs(0 to p2_lower_wait_regs'length - 2);
+                    p2_lower_wait_regs <= p2_lower & p2_lower_wait_regs(0 to p2_lower_wait_regs'length - 2);
                end if;
           end process;
           p2_lower_wait_regs_end <= p2_lower_wait_regs(p2_lower_wait_regs'length-1);

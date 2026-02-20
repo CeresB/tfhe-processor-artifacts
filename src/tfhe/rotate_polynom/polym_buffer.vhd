@@ -94,12 +94,12 @@ architecture Behavioral of polym_buffer is
      signal in_coeff_cnt_tripped : std_ulogic_vector(0 to counter_buffer_len - 1);
 
      signal in_coeff_cnt_full : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
-     signal in_coeff_offset   : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
+     signal in_coeff_offset   : std_ulogic;
 
      type ping_indices is array (natural range <>) of unsigned(0 to coeffs_per_ram_block_bit_length - 1 - 1);
      type coeff_indices is array (natural range <>) of unsigned(0 to coeffs_per_ram_block_bit_length - 1);
      signal rq_coeff_indices : coeff_indices(0 to throughput / 2 - 1);
-     signal rq_coeff_offset  : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
+     signal rq_coeff_offset  : std_ulogic;
 
      type rq_ping_indices_buf is array (natural range <>) of ping_indices(0 to throughput / 2 - 1);
      signal rq_ping_indices : rq_ping_indices_buf(0 to counter_buffer_len - 1);
@@ -211,26 +211,25 @@ begin
      begin
           if rising_edge(i_clk) then
                if i_reset = '1' then
-                    rq_coeff_offset <= to_unsigned(ping_buffer_length, rq_coeff_offset'length);
-                    in_coeff_offset <= to_unsigned(0, in_coeff_offset'length);
+                    rq_coeff_offset <= '1';
+                    in_coeff_offset <= '0';
                else
                     if in_coeff_cnt_tripped(in_coeff_cnt_tripped'length - 1) = '1' then
-                         rq_coeff_offset <= rq_coeff_offset + to_unsigned(ping_buffer_length, rq_coeff_offset'length);
-                         in_coeff_offset <= in_coeff_offset + to_unsigned(ping_buffer_length, in_coeff_offset'length);
+                         rq_coeff_offset <= not rq_coeff_offset;
+                         in_coeff_offset <= not in_coeff_offset;
                     end if;
                end if;
                input_buffer <= internal_input;
-               in_coeff_cnt_full <= in_coeff_offset + unsigned('0' & std_ulogic_vector(in_coeff_cnt(in_coeff_cnt'length - 1)));
+               in_coeff_cnt_full <= unsigned(in_coeff_offset & std_ulogic_vector(in_coeff_cnt(in_coeff_cnt'length - 1)));
 
                for i in 0 to rq_coeff_indices'length - 1 loop
-                    rq_coeff_indices(i) <= rq_coeff_offset + unsigned('0' & std_ulogic_vector(rq_ping_indices(rq_ping_indices'length - 1)(i)));
+                    rq_coeff_indices(i) <= unsigned(rq_coeff_offset & std_ulogic_vector(rq_ping_indices(rq_ping_indices'length - 1)(i)));
                end loop;
           end if;
      end process;
 
      internal_input_upper                                          <= input_buffer(0 to internal_input_upper'length - 1);
      internal_input_lower                                          <= input_buffer(internal_input_upper'length to input_buffer'length - 1);
-     o_result(0 to internal_output_upper'length - 1)               <= internal_output_upper;
-     o_result(internal_output_upper'length to o_result'length - 1) <= internal_output_lower;
+     o_result <= internal_output_upper & internal_output_lower;
 
 end architecture;

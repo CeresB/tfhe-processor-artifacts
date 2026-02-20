@@ -230,7 +230,6 @@ architecture Behavioral of blind_rotation_iteration is
      constant log2_throughput       : integer := get_bit_length(throughput - 1);
      constant ntt_latency           : integer := get_ntt_latency(log2_num_coefficients, log2_throughput, ntt_params.negacyclic, false, false, false);
 
-     constant ntt_out_buf_ram_retiming_latency     : integer := pingpong_ram_retiming_latency;
      constant clks_till_ntt_out_buf_ready          : integer := num_polyms_per_rlwe_ciphertext * ntt_num_blocks_per_polym + ntt_out_buf_ram_retiming_latency + 1; -- +1 for input buffer
      constant adder_tree_delay                     : integer := num_adder_tree_stages * clks_per_64_bit_add_mod;
      constant clks_till_intt_start_after_ntt_ready : integer := clks_till_ntt_out_buf_ready + clks_per_mult_mod + adder_tree_delay;

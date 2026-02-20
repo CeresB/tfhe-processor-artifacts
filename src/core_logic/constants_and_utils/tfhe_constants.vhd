@@ -35,33 +35,33 @@ package tfhe_constants is
   constant use_pbs_fake                 : boolean := debug_mode; -- then blind-rotation output is just the input delayed. Useful when just checking synchronization.
   constant use_ntt_out_buf_input_buffer : boolean := true;       -- set to true for better timing
   constant acc_buf_extra_output_buffer  : boolean := true;       -- set to true for better timing
-  constant buffer_samp_extract_input : boolean := true; -- good against congestion
-  constant buffer_init_output : boolean := true; -- good against congestion
-  
-  constant x_ai_minus_1_sub_buf_output_buffer        : boolean := true; -- experimental, set to true for possibly better timing
-  constant buffer_blind_rot_output : boolean := false;
 
-  constant use_intt_input_buffer        : boolean := false;       -- experimental, apparently worse for congestion
-  constant buffer_blind_rot_input : boolean := false; -- experimental, apparently worse for congestion
-  constant use_decomp_res_output_buffer : boolean := false;       -- serves as the input buffer for the ntt
-  constant use_decomp_res_temp_buffer : boolean := false; -- leads to worse congestion
+  constant buffer_samp_extract_input : boolean := true;  -- good against congestion
+  constant buffer_init_output        : boolean := true;  -- good against congestion
+  constant buffer_blind_rot_output   : boolean := false; -- experimental, apparently worse for congestion
+
+  constant ntt_out_buf_ram_retiming_latency      : integer := pingpong_ram_retiming_latency;
+  constant use_intt_input_buffer                 : boolean := false; -- experimental, apparently worse for congestion
   constant extra_latency_buf_extra_output_buffer : boolean := false; -- experimental, apparently leads to worse timing if set to true
-  constant bski_buffer_output_buffer        : integer := 1; -- must be bigger than 0
-  constant lut_buffer_output_buffer        : integer := 1; -- must be bigger than 0
-  constant ai_buffer_output_buffer        : integer := 2; -- must be bigger than 0
-  constant b_buffer_output_buffer        : integer := 2; -- must be bigger than 0
-  constant op_buffer_output_buffer        : integer := 2; -- must be bigger than 0
-  constant hbm_reset_buf_len        : integer := 2; -- must be bigger than 0
-  constant ntt_out_buf_reset_buf_len        : integer := 2;--2*log2_ntt_throughput; -- must be bigger than 0
-  constant rolling_polym_part_rolled_buffer : boolean := false; -- leads to worse congestion
-  constant rotate_cnt_buf_len        : integer := counter_buffer_len; -- must be bigger than 0, completely independent counter - all other values allowed
-  constant use_hbm_output_buffer        : boolean := false;      -- leads to worse timing, around HBM just too much congestion
 
-  constant use_elem_mult_res_output_buffer       : boolean := false; -- experimental, apparently leads to much worse timing if set to true
-  constant use_intt_res_output_buffer            : boolean := false; -- experimental, apparently leads to worse timing if set to true
+  constant x_ai_minus_1_sub_buf_output_buffer : boolean := false;              -- experimental, apparently worse for congestion
+  constant buffer_blind_rot_input             : boolean := false;              -- experimental, apparently worse for congestion
+  constant use_decomp_res_output_buffer       : boolean := false;              -- serves as the input buffer for the ntt
+  constant use_decomp_res_temp_buffer         : boolean := false;              -- leads to worse congestion
+  constant bski_buffer_output_buffer          : integer := 1;                  -- must be bigger than 0
+  constant lut_buffer_output_buffer           : integer := 1;                  -- must be bigger than 0
+  constant ai_buffer_output_buffer            : integer := 2;                  -- must be bigger than 0
+  constant b_buffer_output_buffer             : integer := 2;                  -- must be bigger than 0
+  constant op_buffer_output_buffer            : integer := 2;                  -- must be bigger than 0
+  constant hbm_reset_buf_len                  : integer := 2;                  -- must be bigger than 0
+  constant ntt_out_buf_reset_buf_len          : integer := 2;                  --2*log2_ntt_throughput; -- must be bigger than 0
+  constant rolling_polym_part_rolled_buffer   : boolean := false;              -- leads to worse congestion
+  constant rotate_cnt_buf_len                 : integer := counter_buffer_len; -- inactive, is ignored. must be bigger than 0, completely independent counter - all other values allowed
+  constant use_hbm_output_buffer              : boolean := false;              -- leads to worse timing, around HBM just too much congestion
 
-  constant cascaded_pingpongbram                 : boolean := (log2_num_coefficients + 1) - log2_ntt_throughput > log2_coeffs_per_bram;                                            -- double as many coefficients in pingpong ram
-  constant pingpong_ram_retiming_latency         : integer := minimum_ram_retiming_latency + 1 * boolean'pos(cascaded_pingpongbram);-- - 1 * boolean'pos(not double_polym_uses_bram); -- for rotate & ntt-out-buffer
+  constant use_elem_mult_res_output_buffer : boolean := false; -- experimental, apparently leads to much worse timing if set to true
+  constant use_intt_res_output_buffer      : boolean := false; -- experimental, apparently leads to worse timing if set to true
+
   constant x_ai_minus_1_sub_buf_ram_retiming_latency : integer := minimum_ram_retiming_latency + 1 * boolean'pos(x_ai_minus_1_sub_buf_output_buffer);
 
   -- INFO: you find additional configuration in...
@@ -120,10 +120,9 @@ package tfhe_constants is
 
   -- decomposition
   constant initial_decomp_delay_without_end_reduction : integer := clks_per_64_bit_add_mod + (decomp_length - 1);
-  constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + easy_reduction_latency + 1 * boolean'pos(use_decomp_res_output_buffer) + 1*boolean'pos(use_decomp_res_temp_buffer);
+  constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + easy_reduction_latency + 1 * boolean'pos(use_decomp_res_output_buffer) + 1 * boolean'pos(use_decomp_res_temp_buffer);
 
   -- rotate polym
-  constant buffer_answer_delay                    : integer := pingpong_ram_retiming_latency + 1 + (counter_buffer_len - 1);                      -- +1 for index calculations
   constant rotate_polym_first_block_initial_delay : integer := 1 + rotate_polym_reorder_delay + buffer_answer_delay + clks_per_64_bit_add_mod + rotate_polym_reset_clks_ahead; -- +1 because of stage 0
   constant rotate_with_buffer_latency             : integer := rotate_polym_first_block_initial_delay + ntt_num_blocks_per_polym - rotate_polym_reset_clks_ahead;
 
@@ -145,7 +144,7 @@ package tfhe_constants is
   constant blind_rot_iter_decomp_latency                  : integer := initial_decomp_delay_first_block;
   constant blind_rot_iter_min_latency_till_elem_wise_mult : integer := blind_rot_iter_decomp_latency + clks_till_ntt_out_buffer_ready;
   constant blind_rot_iter_min_latency_till_monomial_mult  : integer := blind_rot_iter_min_latency_till_elem_wise_mult + elem_wise_mult_latency + 1 * boolean'pos(use_elem_mult_res_output_buffer) + blind_rot_iter_adder_tree_latency + intt_wo_rescaling_clks_till_first_res_ready + 1 * boolean'pos(use_intt_input_buffer);
-  constant blind_rot_iter_minimum_latency                 : integer := blind_rot_iter_min_latency_till_monomial_mult + blind_rot_iter_end_step_initial_delay + 1*boolean'pos(buffer_blind_rot_input) + 1*boolean'pos(buffer_blind_rot_output);
+  constant blind_rot_iter_minimum_latency                 : integer := blind_rot_iter_min_latency_till_monomial_mult + blind_rot_iter_end_step_initial_delay + 1 * boolean'pos(buffer_blind_rot_input) + 1 * boolean'pos(buffer_blind_rot_output);
   -- we don't want unused pipeline stages when latency is not divisible by num_polyms_per_rlwe_ciphertext*num_blocks_per_polynom
   -- that is why we add extra stages and recompute all delays from there.
   constant blind_rot_iter_pipeline_steps_per_ciphertext   : integer := overall_throughput_num_blocks_per_polym * num_polyms_per_rlwe_ciphertext;
@@ -161,7 +160,7 @@ package tfhe_constants is
 
   constant lut_buf_ram_retiming_latency       : integer := default_ram_retiming_latency + 1 * boolean'pos((pbs_batchsize * num_polyms_per_rlwe_ciphertext * num_coefficients / pbs_throughput) > (2 ** log2_coeffs_per_bram));
   constant extra_latency_buf_uses_ram         : boolean := blind_rot_iter_extra_latency > (2 ** log2coeffs_per_lutram);
-  constant extra_latency_ram_retiming_latency : integer := default_ram_retiming_latency - 1 * boolean'pos(not extra_latency_buf_uses_ram) + 1 * boolean'pos(extra_latency_buf_extra_output_buffer);
+  constant extra_latency_ram_retiming_latency : integer := default_ram_retiming_latency + 1 * boolean'pos(extra_latency_buf_extra_output_buffer) - 1 * boolean'pos(not extra_latency_buf_uses_ram);
   constant acc_buf_ram_retiming_latency       : integer := default_ram_retiming_latency + 1 * boolean'pos(blind_rot_iter_min_latency_till_monomial_mult > (2 ** log2_coeffs_per_bram)) + 1 * boolean'pos(acc_buf_extra_output_buffer);
 
   -- blind rotation

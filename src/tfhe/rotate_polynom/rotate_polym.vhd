@@ -78,6 +78,19 @@ architecture Behavioral of rotate_polym is
           );
      end component;
 
+     component shift_array is
+          generic (
+               log2_arr_len : integer;
+               num_stages : integer -- must be smaller log2_arr_len
+          );
+          port (
+               i_clk  : in  std_ulogic;
+               i_arr : in  sub_polynom(0 to (2**log2_arr_len)-1);
+               i_shift : in  unsigned(0 to log2_arr_len-1);
+               o_res  : out sub_polynom(0 to (2**log2_arr_len)-1)
+          );
+     end component;
+
      type wait_registers_sub_polym is array (natural range <>) of sub_polynom(0 to o_result'length - 1);
 
      signal ai_roll_factor     : idx_int;
@@ -94,8 +107,8 @@ architecture Behavioral of rotate_polym is
      signal index_original_value_buffer : idx_int_array(0 to o_result'length - 1);
 
      constant polym_part_rolled_wait_reg_chain_len : integer := clks_per_64_bit_add_mod;
-     signal polym_part_rolled_wait_reg_chain       : wait_registers_sub_polym(0 to polym_part_rolled_wait_reg_chain_len - 1);-- - 1); -- -1 because we use polym_part_rolled_wait_reg_chain_end
-     --signal polym_part_rolled_wait_reg_chain_end   : sub_polynom(0 to o_result'length - 1);
+     signal polym_part_rolled_wait_reg_chain       : wait_registers_sub_polym(0 to polym_part_rolled_wait_reg_chain_len - 1 - 1); -- -1 because of polym_part_rolled_wait_reg_chain_end
+     signal polym_part_rolled_wait_reg_chain_end   : sub_polynom(0 to o_result'length - 1);
      signal polym_part_rolled                      : sub_polynom(0 to o_result'length - 1);
      signal polym_part_rolled_sign_flipped_reduced : sub_polynom(0 to o_result'length - 1);
 
@@ -114,22 +127,30 @@ architecture Behavioral of rotate_polym is
      constant log2_half_throughput             : integer := log2_throughput-1;
      signal lowest_idx_signal  : unsigned(0 to get_max(1,log2_half_throughput) - 1);
      signal ai_throughput_part : unsigned(0 to get_max(1,log2_half_throughput) - 1);
-     signal long_offset        : unsigned(0 to log2_throughput-1);
-     signal block_offset       : unsigned(0 to get_max(1,log2_half_throughput) - 1);
+     signal across_block_offset        : unsigned(0 to log2_throughput-1); -- for the shift across blocks
+     signal inner_block_offset       : unsigned(0 to get_max(1,log2_half_throughput) - 1); -- for the inner-block shift
 
-     signal index_plus_ai_reduced_buffer_2_part : unsigned(0 to get_max(1,long_offset'length - 1) - 1);
+     type inner_block_offset_chain is array (natural range <>) of unsigned(0 to inner_block_offset'length - 1);
+     signal inner_block_offset_buf : inner_block_offset_chain(0 to buffer_answer_delay-1 - 1); -- -1 because input is seperate
+     type across_block_offset_chain is array (natural range <>) of unsigned(0 to across_block_offset'length - 1);
+     signal across_block_offset_buf  : across_block_offset_chain(0 to inner_block_offset_buf'length+(rotate_reorder_stages-1) - 1);
+
+     signal index_plus_ai_reduced_buffer_2_part : unsigned(0 to inner_block_offset'length - 1);
      signal index_plus_ai_reduced_buffer_2_msb  : std_ulogic;
 
-     type block_offset_chain is array (natural range <>) of unsigned(0 to block_offset'length - 1);
-     type long_offset_chain is array (natural range <>) of unsigned(0 to long_offset'length - 1);
-     signal long_offset_buf  : long_offset_chain(0 to get_max(1,buffer_answer_delay-1-1) - 1); -- -1 because input is seperate, -1 because we read early
-     signal block_offset_buf : block_offset_chain(0 to get_max(1,buffer_answer_delay-1-1+1) - 1); -- -1 because input is seperate, -1 because we read early
+     signal input_blocks_rearanged: sub_polynom(0 to o_result'length - 1);
+     signal in_block0: sub_polynom(0 to throughput/2 - 1);
+     signal in_block1: sub_polynom(0 to throughput/2 - 1);
+     signal in_block0_shifted: sub_polynom(0 to throughput/2 - 1);
+     signal in_block1_shifted: sub_polynom(0 to throughput/2 - 1);
 
+     constant rolling_polym_part_rolled_buffer : boolean := false;
      signal polym_part_rolled_wait_regs_cnt : unsigned(0 to get_bit_length(polym_part_rolled_wait_reg_chain'length - 1) - 1) := to_unsigned(0, get_bit_length(polym_part_rolled_wait_reg_chain'length - 1));
-     type polym_part_rolled_wait_regs_cnt_bufs is array(natural range <>) of unsigned(0 to polym_part_rolled_wait_regs_cnt'length - 1);
-     signal polym_part_rolled_wait_regs_cnt_buf : polym_part_rolled_wait_regs_cnt_bufs(0 to rotate_cnt_buf_len-1);
 
 begin
+
+     in_block0 <= i_sub_coeffs(0 to throughput/2-1);
+     in_block1 <= i_sub_coeffs(throughput/2 to throughput-1);
 
      initial_latency_counter: one_time_counter
           generic map (
@@ -170,42 +191,22 @@ begin
                if rising_edge(i_clk) then
                     polym_part_rolled_wait_reg_chain(0) <= polym_part_rolled;
                     polym_part_rolled_wait_reg_chain(1 to polym_part_rolled_wait_reg_chain'length - 1) <= polym_part_rolled_wait_reg_chain(0 to polym_part_rolled_wait_reg_chain'length - 2);
-                    --polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(polym_part_rolled_wait_reg_chain'length - 1);
+                    polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(polym_part_rolled_wait_reg_chain'length - 1);
                end if;
           end process;
-     end generate;
-     
-     offset_buf: if (buffer_answer_delay-2 > 0) generate
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    long_offset_buf(0) <= long_offset;
-                    block_offset_buf(0) <= block_offset;
-                    long_offset_buf(1 to long_offset_buf'length - 1) <= long_offset_buf(0 to long_offset_buf'length - 2);
-                    block_offset_buf(1 to block_offset_buf'length - 1) <= block_offset_buf(0 to block_offset_buf'length - 2);
-               end if;
-          end process;
-     end generate;
-     no_offset_buf: if not (buffer_answer_delay-2 > 0) generate
-          long_offset_buf(0) <= long_offset;
-          block_offset_buf(0) <= block_offset;
      end generate;
 
      non_rolling_buffer_polym_part_rolled: if not rolling_polym_part_rolled_buffer generate
           process (i_clk)
           begin
                if rising_edge(i_clk) then
-                    if polym_part_rolled_wait_regs_cnt = 0 then
-                         polym_part_rolled_wait_regs_cnt <= to_unsigned(polym_part_rolled_wait_reg_chain'length - 1, polym_part_rolled_wait_regs_cnt'length);
+                    if polym_part_rolled_wait_regs_cnt < to_unsigned(polym_part_rolled_wait_reg_chain'length - 1, polym_part_rolled_wait_regs_cnt'length) then
+                         polym_part_rolled_wait_regs_cnt <= polym_part_rolled_wait_regs_cnt + to_unsigned(1, polym_part_rolled_wait_regs_cnt'length);
                     else
-                         polym_part_rolled_wait_regs_cnt <= polym_part_rolled_wait_regs_cnt - to_unsigned(1, polym_part_rolled_wait_regs_cnt'length);
+                         polym_part_rolled_wait_regs_cnt <= to_unsigned(0, polym_part_rolled_wait_regs_cnt'length);
                     end if;
-                    polym_part_rolled_wait_regs_cnt_buf(0) <= polym_part_rolled_wait_regs_cnt;
-                    polym_part_rolled_wait_regs_cnt_buf(1 to polym_part_rolled_wait_regs_cnt_buf'length-1) <= polym_part_rolled_wait_regs_cnt_buf(0 to polym_part_rolled_wait_regs_cnt_buf'length-2);
-
-                    polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt_buf(polym_part_rolled_wait_regs_cnt_buf'length-1))) <= polym_part_rolled;
-                    --polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt_buf(polym_part_rolled_wait_regs_cnt_buf'length-1)));
-                    
+                    polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt)) <= polym_part_rolled;
+                    polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt));
                end if;
           end process;
      end generate;
@@ -274,8 +275,8 @@ begin
                process (i_clk) is
                begin
                     if rising_edge(i_clk) then
-                         -- need to find block_offset, which determines the order in which a bufferblock-group is read
-                         -- block_offset is the block index of the lowest index that we request
+                         -- need to find inner_block_offset, which determines the order in which a bufferblock-group is read
+                         -- inner_block_offset is the block index of the lowest index that we request
                          -- we want to read from the lowest idx upwards
                          -- the lowest idx is always at position 0 but not if that idx+throughput/2 < idx
                          -- since we count up: if at idx 0 is not the lowest, the lowest must be at idx = num_coeffs-1 - index_plus_ai_reduced(0) + 1 = -index_plus_ai_reduced(0) mod throughput
@@ -333,38 +334,66 @@ begin
                     ai_throughput_part <= ai_roll_factor(ai_roll_factor'length - ai_throughput_part'length to ai_roll_factor'length - 1);
                     
                     -- we use block offset to rearrange what the polynom-buffer provided us with
-                    block_offset <= index_plus_ai_reduced_buffer(to_integer(lowest_idx_signal))(index_plus_ai_reduced_buffer(0)'length - block_offset'length to index_plus_ai_reduced_buffer(0)'length - 1);
+                    inner_block_offset <= index_plus_ai_reduced_buffer(to_integer(lowest_idx_signal))(index_plus_ai_reduced_buffer(0)'length - inner_block_offset'length to index_plus_ai_reduced_buffer(0)'length - 1);
 
-                    -- long_offset is the idx from which we start reading the result
+                    -- across_block_offset is the idx from which we start reading the result
                     -- the coefficients inside the mixed-halves are in the right order
                     -- where do we find the first idx in the result? At the position of its buffer block? No, the blocks are sorted.
                     -- only need to know the half and then from where to read the half
-                    -- read the half from the buffer block of the index and correct by block_offset
-                    index_plus_ai_reduced_buffer_2_part <= index_plus_ai_reduced_buffer(0)(index_plus_ai_reduced_buffer(0)'length - (long_offset'length - 1) to index_plus_ai_reduced_buffer(0)'length - 1);
+                    -- read the half from the buffer block of the index and correct by inner_block_offset
+                    index_plus_ai_reduced_buffer_2_part <= index_plus_ai_reduced_buffer(0)(index_plus_ai_reduced_buffer(0)'length - (inner_block_offset'length) to index_plus_ai_reduced_buffer(0)'length - 1);
+                    across_block_offset <= index_plus_ai_reduced_buffer_2_msb & (index_plus_ai_reduced_buffer_2_part - inner_block_offset);
                     ai_roll_factor_msb <= ai_roll_factor(0);
-                    long_offset <= index_plus_ai_reduced_buffer_2_msb & (index_plus_ai_reduced_buffer_2_part - block_offset);
                end if;
           end process;
      end generate;
      no_half_throughput_computation: if not (log2_half_throughput > 0) generate
           ai_throughput_part <= to_unsigned(0,ai_throughput_part'length);
-          block_offset <= to_unsigned(0,block_offset'length);
+          inner_block_offset <= to_unsigned(0,inner_block_offset'length);
           ai_roll_factor_msb <= '0';
-          process (i_clk) is
-          begin
-            if rising_edge(i_clk) then
-               long_offset(0) <= index_plus_ai_reduced_buffer_2_msb;
-            end if;
-          end process;
      end generate;
+
+     shift_block0: shift_array
+          generic map (
+               log2_arr_len => log2_half_throughput,
+               num_stages   => rotate_reorder_stages
+          )
+          port map (
+               i_clk   => i_clk,
+               i_arr   => in_block0,
+               i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
+               o_res   => in_block0_shifted
+          );
+     shift_block1: shift_array
+          generic map (
+               log2_arr_len => log2_half_throughput,
+               num_stages   => rotate_reorder_stages
+          )
+          port map (
+               i_clk   => i_clk,
+               i_arr   => in_block1,
+               i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
+               o_res   => in_block1_shifted
+          );
+     input_blocks_rearanged <= in_block0_shifted & in_block1_shifted;
+     shift_long: shift_array
+          generic map (
+               log2_arr_len => log2_throughput,
+               num_stages   => rotate_reorder_stages+1 -- +1 so complexity is equal to in_block shift
+          )
+          port map (
+               i_clk   => i_clk,
+               i_arr   => input_blocks_rearanged,
+               i_shift => across_block_offset_buf(across_block_offset_buf'length - 1),
+               o_res   => polym_part_rolled
+          );
 
      process (i_clk)
      begin
           if rising_edge(i_clk) then
                -- stage 0
                -- switch sign computation
-               switch_sign_wait_regs(0) <= ai_sign_part;
-               switch_sign_wait_regs(1 to switch_sign_wait_regs'length - 1) <= switch_sign_wait_regs(0 to switch_sign_wait_regs'length - 2);
+               switch_sign_wait_regs <= ai_sign_part & switch_sign_wait_regs(0 to switch_sign_wait_regs'length - 2);
                -- index_original_value is one too early so ai_roll_factor does not need to be buffered
                index_original_value_buffer <= index_original_value;
                -- stage 0 computes index_plus_ai_reduced in another process
@@ -376,11 +405,12 @@ begin
                index_plus_ai_reduced_buffer_2_msb <= index_plus_ai_reduced_buffer(0)(0);
 
                -- i_sub_coeffs arrive a bit later due to pingpong_ram_retiming_latency!
-               -- delay block_offset and long_offset
-               for i in 0 to i_sub_coeffs'length - 1 loop
-                    polym_part_rolled(i) <= i_sub_coeffs(to_integer(to_unsigned(i, long_offset_buf(0)'length) + long_offset_buf(long_offset_buf'length - 1) + block_offset_buf(block_offset_buf'length - 1)));
-               end loop;
-
+               -- delay inner_block_offset and across_block_offset
+               across_block_offset_buf(0) <= across_block_offset;
+               inner_block_offset_buf(0) <= inner_block_offset;
+               across_block_offset_buf(1 to across_block_offset_buf'length - 1) <= across_block_offset_buf(0 to across_block_offset_buf'length - 2);
+               inner_block_offset_buf(1 to inner_block_offset_buf'length - 1) <= inner_block_offset_buf(0 to inner_block_offset_buf'length - 2);
+               
                -- stage 2 to x: computation of polym_part_rolled_sign_flipped_reduced
                -- roll_info is computed
                -- stage x+1
@@ -390,12 +420,12 @@ begin
                          o_result(i) <= polym_part_rolled_sign_flipped_reduced(i);
                     else
                          -- coefficient is unchanged
-                         --o_result(i) <= polym_part_rolled_wait_reg_chain_end(i);
-                         o_result(i) <= polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt_buf(polym_part_rolled_wait_regs_cnt_buf'length-1)))(i);
+                         o_result(i) <= polym_part_rolled_wait_reg_chain_end(i);
                     end if;
                end loop;
           end if;
      end process;
+
 
      process (i_clk)
      begin

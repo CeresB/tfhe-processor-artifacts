@@ -117,11 +117,12 @@ begin
 
      rotate_complete_output_ready <= '1' when rotate_output_coeff_cnt = to_unsigned(0, rotate_output_coeff_cnt'length) and rotate_firstoutput_not_ready(rotate_firstoutput_not_ready'length - 1) = '0' and rotate_reset_delayed = '0' else '0';
 
-     one_early: if (num_coefficients / throughput) - rotate_polym_reorder_delay < 0 generate
-          assert not ((num_coefficients / throughput) - rotate_polym_reorder_delay < - 1) report "throughput not big enough" severity error;
+     one_early: if (num_coefficients / throughput) - buffer_answer_delay < 0 generate
+          assert not ((num_coefficients / throughput) - buffer_answer_delay < - 1) report "throughput not big enough" severity error;
+          test_rotate_by_delayed <= test_rotate_by;
      end generate;
-     on_time: if not ((num_coefficients / throughput) - rotate_polym_reorder_delay < 0) generate
-          lbl: process (clk) is
+     on_time: if not ((num_coefficients / throughput) - buffer_answer_delay < 0) generate
+          process (clk) is
           begin
                if rising_edge(clk) then
                     test_rotate_by_delayed <= test_rotate_by;

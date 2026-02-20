@@ -68,21 +68,15 @@ architecture Behavioral of ntt_fully_parallel_optimized is
 begin
 
      flow_chain: if not invers generate
-          stage_inputs(0) <= i_polym;
+          stage_inputs <= i_polym & stage_outputs(0 to stage_outputs'length - 2);
           -- the output is the input of the next stage
-          input_cacade: if stage_inputs'length > 1 generate
-               stage_inputs(1 to stage_inputs'length - 1) <= stage_outputs(0 to stage_outputs'length - 2);
-          end generate;
           o_result <= stage_outputs(stage_outputs'length - 1);
      end generate;
 
      flow_chain_invers: if invers generate
           -- we reverse the stage order for the intt, so that we can reuse the twiddle-table and other logic from the normal ntt
-          stage_inputs(stage_inputs'length - 1) <= i_polym;
           -- the output is the input of the next stage
-          input_cacade: if stage_inputs'length > 1 generate
-               stage_inputs(0 to stage_inputs'length - 2) <= stage_outputs(1 to stage_outputs'length - 1);
-          end generate;
+          stage_inputs <= stage_outputs(1 to stage_outputs'length - 1) & i_polym;
           o_result <= stage_outputs(0);
      end generate;
 

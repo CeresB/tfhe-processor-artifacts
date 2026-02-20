@@ -142,8 +142,7 @@ begin
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
-                    internal_reset_chain(0) <= i_reset;
-                    internal_reset_chain(1 to internal_reset_chain'length - 1) <= internal_reset_chain(0 to internal_reset_chain'length - 2);
+                    internal_reset_chain <= i_reset & internal_reset_chain(0 to internal_reset_chain'length - 2);
                end if;
           end process;
           internal_reset <= internal_reset_chain(internal_reset_chain'length - 1);

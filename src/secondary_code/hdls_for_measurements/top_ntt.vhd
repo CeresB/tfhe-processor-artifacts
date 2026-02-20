@@ -93,10 +93,11 @@ architecture Behavioral of top is
      end component;
 
      constant num_leds             : integer := 8;
-     constant input_ram_num_coeffs : integer := 2;--2 ** log2_coeffs_per_bram; vivado optimizes this away for some reason
+     constant input_ram_num_coeffs : integer := 2 ** log2_coeffs_per_bram; -- vivado optimizes this away for some reason
 
      -- clock and controls
      signal clk_signal : std_logic := 'U';
+     signal ntt_not_ready : std_logic;
 
      signal led_o        : std_ulogic_vector(0 to num_leds - 1);
      signal led_o_buffer : std_ulogic_vector(0 to num_leds - 1);
@@ -105,6 +106,7 @@ architecture Behavioral of top is
      signal ntt_result       : sub_polynom(0 to throughput - 1);
      signal ntt_input        : sub_polynom(0 to throughput - 1);
      signal ntt_input_buf        : sub_polynom(0 to throughput - 1);
+     signal in_data        : sub_polynom(0 to throughput - 1);
      
      constant cnt_buffer_length    : integer := 2 * log2_ntt_throughput;
      type in_coeff_cnt_type is array (natural range <>) of unsigned(0 to get_bit_length(input_ram_num_coeffs - 1) - 1);
@@ -119,9 +121,9 @@ architecture Behavioral of top is
 
      constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1) := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234);
 
-     attribute dont_touch               : string;
-     attribute dont_touch of ntt_input  : signal is "true";
-     attribute dont_touch of ntt_result : signal is "true";
+     -- attribute dont_touch               : string;
+     -- attribute dont_touch of ntt_input  : signal is "true";
+     -- attribute dont_touch of ntt_result : signal is "true";
 
 begin
 
@@ -163,7 +165,7 @@ begin
                i_reset             => ntt_reset,
                i_sub_polym         => ntt_input_buf,
                o_result            => ntt_result,
-               o_next_module_reset => open
+               o_next_module_reset => ntt_not_ready
           );
 
      in_coeff_cnt_logic: process (clk_signal) is
@@ -190,6 +192,11 @@ begin
                end loop;
                led_o_buffer <= led_o;
                ntt_input_buf <= ntt_input;
+               if ntt_not_ready='0' then
+                    ntt_input <= ntt_result;
+               else
+                    ntt_input <= in_data;
+               end if;
           end if;
      end process;
 
@@ -198,13 +205,13 @@ begin
                generic map (
                     ram_content         => input_ram_content(coeff_idx * input_ram_num_coeffs to (coeff_idx + 1) * input_ram_num_coeffs - 1),
                     addr_length         => ntt_in_coeff_cnt(0)'length,
-                    ram_out_bufs_length => default_ram_retiming_latency+1,
+                    ram_out_bufs_length => minimum_ram_retiming_latency,
                     ram_type            => ram_style_auto
                )
                port map (
                     i_clk     => clk_signal,
                     i_rd_addr => ntt_in_coeff_cnt(ntt_in_coeff_cnt'length-1),
-                    o_data    => ntt_input(coeff_idx)
+                    o_data    => in_data(coeff_idx)
                );
      end generate;
 

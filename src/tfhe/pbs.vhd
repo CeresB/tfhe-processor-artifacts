@@ -204,8 +204,8 @@ begin
      process (i_clk)
      begin
           if rising_edge(i_clk) then
-               b_extract_idx_bufferchain(0) <= i_sample_extract_idx; -- required for lwe_n_buffer
-               b_extract_idx_bufferchain(1 to b_extract_idx_bufferchain'length - 1) <= b_extract_idx_bufferchain(0 to b_extract_idx_bufferchain'length - 2);
+               -- required for lwe_n_buffer
+               b_extract_idx_bufferchain <= i_sample_extract_idx & b_extract_idx_bufferchain(0 to b_extract_idx_bufferchain'length - 2);
           end if;
      end process;
      o_sample_extract_idx <= b_extract_idx_bufferchain(b_extract_idx_bufferchain'length - 1);
