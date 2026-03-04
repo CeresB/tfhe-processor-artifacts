@@ -66,7 +66,7 @@ package constants_utils is
   constant use_easy_red_out_buffer                               : boolean := false;
   constant use_solinas_red_out_buffer                            : boolean := false;
   constant trailing_reset_buffer_len                             : integer := log2_ntt_throughput + 1;
-  constant ntt_in_other_half_early                               : integer := 1;                                                                         -- must be smaller ntt_cnts_early_reset
+  constant ntt_in_other_half_early                               : integer := 1; -- usually optimized away by Vivado, no need to adjust
   constant ntt_cnts_early_reset                                  : integer := 2 * log2_ntt_throughput + 1 + ntt_in_other_half_early;                     -- must be at least 2
   constant ntt_num_clks_reset_early                              : integer := ntt_twiddle_rams_retiming_latency + (counter_buffer_len - 1) + ntt_cnts_early_reset;
 
@@ -108,6 +108,8 @@ package constants_utils is
   constant rotate_reorder_stages         : integer := 2;                                                                               --log2_ntt_throughput-1;-- something between 0 and log2_ntt_throughput-1
   constant rotate_polym_reorder_delay    : integer := 3 + 2 * (rotate_reorder_stages - 1 * boolean'pos(log2_ntt_throughput - 1 = rotate_reorder_stages)) + 1 * boolean'pos(rotate_polym_ram_idx_out_buffer);
   constant rolling_rotate_by_buffer      : boolean := false;
+  constant rolling_polym_part_rolled_buffer   : boolean := false;              -- leads to worse congestion
+  constant rotate_cnt_buf_len                 : integer := counter_buffer_len; -- inactive, is ignored. must be bigger than 0, completely independent counter - all other values allowed
 
   -- values that are inferred - DO NOT CHANGE ANYTHING BELOW THIS LINE
   constant num_coefficients : integer := 2 ** log2_num_coefficients;

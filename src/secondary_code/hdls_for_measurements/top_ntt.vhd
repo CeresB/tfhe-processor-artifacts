@@ -116,14 +116,14 @@ architecture Behavioral of top is
      constant num_other_leds          : integer := get_max(num_leds - num_leds_for_ntt_result, 0);
 
      signal led_secondary : std_logic_vector(num_other_leds - 1 downto 0) := (others => 'U');
-     signal reset         : std_ulogic_vector(0 to 100 - 1)               := (others => '1');
+     signal reset         : std_ulogic_vector(0 to 15 - 1)               := (others => '1');
      signal bits_cnt: unsigned(0 to get_bit_length(synthesiseable_uint'length-1)-1) := to_unsigned(0, get_bit_length(synthesiseable_uint'length-1));
 
-     constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1) := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234);
+     constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1) := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234123487);
 
-     -- attribute dont_touch               : string;
-     -- attribute dont_touch of ntt_input  : signal is "true";
-     -- attribute dont_touch of ntt_result : signal is "true";
+     attribute dont_touch               : string;
+     attribute dont_touch of ntt_input_buf  : signal is "true";
+     attribute dont_touch of ntt_result : signal is "true";
 
 begin
 

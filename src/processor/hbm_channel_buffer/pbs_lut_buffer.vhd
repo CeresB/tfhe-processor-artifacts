@@ -71,7 +71,7 @@ architecture Behavioral of pbs_lut_buffer is
      end component;
 
      constant num_lut_blocks     : integer := coeffs_per_pbs_lut / pbs_throughput;
-     constant storage_num_blocks : integer := pbs_batchsize * num_lut_blocks;
+     constant storage_num_blocks : integer := num_lut_blocks * pbs_batchsize;
 
      signal lut_block_coeff_cnt : unsigned(0 to pbs_throughput - 1);
 
@@ -152,15 +152,15 @@ begin
                end if;
 
                -- output to pbs module
-               if i_pbs_reset = '0' then
+               if i_pbs_reset = '1' then
+                    lut_out_block_cnt <= to_unsigned(0, lut_out_block_cnt'length);
+               else
                     lut_out_block_cnt <= to_unsigned(0, lut_out_block_cnt'length);
                     if lut_out_block_cnt < to_unsigned(storage_num_blocks - 1, lut_out_block_cnt'length) then
                          lut_out_block_cnt <= lut_out_block_cnt + to_unsigned(1, lut_out_block_cnt'length);
                     else
                          lut_out_block_cnt <= to_unsigned(0, lut_out_block_cnt'length);
                     end if;
-               else
-                    lut_out_block_cnt <= to_unsigned(0, lut_out_block_cnt'length);
                end if;
 
           end if;

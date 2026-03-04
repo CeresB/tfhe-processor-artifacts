@@ -56,7 +56,7 @@ architecture Behavioral of pbs_b_buffer is
      signal b_val_valid_cnt : unsigned(0 to get_bit_length(clks_b_valid - 1) - 1);
 
      -- use ram retiming registers
-     signal b_storage_end : rotate_idx_array(0 to default_ram_retiming_latency+(b_buffer_output_buffer-1) - 1);
+     signal b_storage_end : rotate_idx_array(0 to b_buffer_output_buffer-1 - 1);
 
      signal b_addresses    : hbm_ps_port_memory_address_arr(0 to pbs_batchsize - 1);
      signal b_addr_in_cnt  : unsigned(0 to get_bit_length(b_addresses'length) - 1);

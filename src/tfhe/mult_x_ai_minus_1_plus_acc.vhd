@@ -125,19 +125,36 @@ architecture Behavioral of mult_x_ai_minus_1_plus_acc is
      signal internal_reset_chain : std_ulogic_vector(0 to ntt_cnts_early_reset - 1);
      signal internal_reset       : std_ulogic;
 
+     signal reset_buf: std_ulogic;
+     signal sub_polym_buf: sub_polynom(0 to i_sub_polym'length-1);
+
 begin
+
+     input_buf: if use_end_step_input_buffer generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               sub_polym_buf <= i_sub_polym;
+               reset_buf <= i_reset;
+          end if;
+          end process;
+     end generate;
+     no_input_buf: if not use_end_step_input_buffer generate
+          sub_polym_buf <= i_sub_polym;
+          reset_buf <= i_reset;
+     end generate;
 
      reset_chain: if internal_reset_chain'length > 0 generate
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
-                    internal_reset_chain <= i_reset & internal_reset_chain(0 to internal_reset_chain'length - 2);
+                    internal_reset_chain <= reset_buf & internal_reset_chain(0 to internal_reset_chain'length - 2);
                end if;
           end process;
           internal_reset <= internal_reset_chain(internal_reset_chain'length - 1);
      end generate;
      no_reset_chain: if not (internal_reset_chain'length > 0) generate
-          internal_reset <= i_reset;
+          internal_reset <= reset_buf;
      end generate;
 
      rotate_with_buf: rotate_polym_with_buffer
@@ -151,7 +168,7 @@ begin
           port map (
                i_clk               => i_clk,
                i_reset             => internal_reset,
-               i_sub_polym         => i_sub_polym,
+               i_sub_polym         => sub_polym_buf,
                i_rotate_by         => i_ai,
                o_result            => polym_part_rolled,
                o_next_module_reset => latency_cnt_reset
@@ -166,7 +183,7 @@ begin
                port map (
                     i_clk    => i_clk,
                     i_num0   => i_acc(i),
-                    i_num1   => i_sub_polym(i),
+                    i_num1   => sub_polym_buf(i),
                     o_result => acc_old_minus_acc_part(i)
                );
      end generate;

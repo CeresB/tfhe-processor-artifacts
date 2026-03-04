@@ -12,7 +12,7 @@ library work;
 entity tfhe_pu is
   port (
 
-    HBM_RW_SELECT     : in  std_logic_vector(3 downto 0); -- deprecated
+    HBM_RW_SELECT       : in  std_logic_vector(3 downto 0);                           -- deprecated
 
     --- Global signals
     -- i_clk                : in  std_ulogic;
@@ -101,7 +101,6 @@ entity tfhe_pu is
     AXI_01_BID          : out std_logic_vector(hbm_id_bit_width - 1 downto 0);
     AXI_01_BRESP        : out std_logic_vector(hbm_resp_bit_width - 1 downto 0);
     AXI_01_BVALID       : out std_logic;
-
     AXI_02_ARADDR       : in  std_logic_vector(hbm_addr_width - 1 downto 0);
     AXI_02_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width - 1 downto 0);
     AXI_02_ARID         : in  std_logic_vector(hbm_id_bit_width - 1 downto 0);
@@ -165,7 +164,6 @@ entity tfhe_pu is
     AXI_03_BID          : out std_logic_vector(hbm_id_bit_width - 1 downto 0);
     AXI_03_BRESP        : out std_logic_vector(hbm_resp_bit_width - 1 downto 0);
     AXI_03_BVALID       : out std_logic;
-
     AXI_04_ARADDR       : in  std_logic_vector(hbm_addr_width - 1 downto 0);
     AXI_04_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width - 1 downto 0);
     AXI_04_ARID         : in  std_logic_vector(hbm_id_bit_width - 1 downto 0);
@@ -357,7 +355,6 @@ entity tfhe_pu is
     -- AXI_09_BID          : out std_logic_vector(hbm_id_bit_width - 1 downto 0);
     -- AXI_09_BRESP        : out std_logic_vector(hbm_resp_bit_width - 1 downto 0);
     -- AXI_09_BVALID       : out std_logic;
-
     -- AXI_10_ARADDR       : in  std_logic_vector(hbm_addr_width - 1 downto 0);
     -- AXI_10_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width - 1 downto 0);
     -- AXI_10_ARID         : in  std_logic_vector(hbm_id_bit_width - 1 downto 0);
@@ -421,7 +418,6 @@ entity tfhe_pu is
     -- AXI_11_BID          : out std_logic_vector(hbm_id_bit_width - 1 downto 0);
     -- AXI_11_BRESP        : out std_logic_vector(hbm_resp_bit_width - 1 downto 0);
     -- AXI_11_BVALID       : out std_logic;
-
     -- AXI_12_ARADDR       : in  std_logic_vector(hbm_addr_width - 1 downto 0);
     -- AXI_12_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width - 1 downto 0);
     -- AXI_12_ARID         : in  std_logic_vector(hbm_id_bit_width - 1 downto 0);
@@ -485,7 +481,6 @@ entity tfhe_pu is
     -- AXI_13_BID          : out std_logic_vector(hbm_id_bit_width - 1 downto 0);
     -- AXI_13_BRESP        : out std_logic_vector(hbm_resp_bit_width - 1 downto 0);
     -- AXI_13_BVALID       : out std_logic;
-
     -- AXI_14_ARADDR       : in  std_logic_vector(hbm_addr_width - 1 downto 0);
     -- AXI_14_ARBURST      : in  std_logic_vector(hbm_burstmode_bit_width - 1 downto 0);
     -- AXI_14_ARID         : in  std_logic_vector(hbm_id_bit_width - 1 downto 0);
@@ -1293,6 +1288,7 @@ architecture rtl of tfhe_pu is
   signal hbm_read_in_pkgs_stack_1   : hbm_ps_in_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
   signal hbm_read_out_pkgs_stack_1  : hbm_ps_out_read_pkg_arr(0 to hbm_stack_num_ps_ports - 1);
 
+  -- bsk gets channels 0 to 7.
   constant channel_op_idx     : integer := 0;
   constant channel_lut_idx    : integer := 1;
   constant channel_ai_idx     : integer := 2;
@@ -1303,9 +1299,6 @@ architecture rtl of tfhe_pu is
   -- constant hbm_stack_1_num_used_channels  : integer := 5;
   constant hbm_stack_1_num_write_channels : integer := 4;
 
-  signal hbm_reset_buf: std_ulogic_vector(0 to hbm_reset_buf_len-1);
-  signal hbm_reset: std_ulogic;
-
 begin
 
   PBS_BUSY <= START_PBS;
@@ -1315,41 +1308,43 @@ begin
 
   -- connecting stack 0
   -- connect bsk-channels-read to accelerator
-  bsk_hbm_out                                                        <= intermediate_hbm_read_out_pkgs_stack_0(0 to bsk_hbm_out'length - 1); --Throws away data from unused ports
-  intermediate_hbm_read_in_pkgs_stack_0(0 to bsk_hbm_out'length - 1) <= bsk_hbm_in;                                                          --Throws away data from unused ports
-  -- connect bsk-channels-write to pcie
-  intermediate_hbm_write_in_pkgs_stack_0                             <= hbm_write_in_pkgs_stack_0;
-  hbm_write_out_pkgs_stack_0                                         <= intermediate_hbm_write_out_pkgs_stack_0;
-  -- no read for pcie on the bsk channels --> deactivate read feedback by driving those signals with 0
-  stack_0_no_pcie_read: for channel_idx in 0 to hbm_stack_num_ps_ports - 1 generate
-    hbm_read_out_pkgs_stack_0(channel_idx).arready      <= '0';
-    hbm_read_out_pkgs_stack_0(channel_idx).rvalid       <= '0';
-    hbm_read_out_pkgs_stack_0(channel_idx).rdata        <= (others => '0');
-    hbm_read_out_pkgs_stack_0(channel_idx).rdata_parity <= (others => '0');
-    hbm_read_out_pkgs_stack_0(channel_idx).rid          <= (others => '0');
-    hbm_read_out_pkgs_stack_0(channel_idx).rlast        <= '0';
-    hbm_read_out_pkgs_stack_0(channel_idx).rresp        <= (others => '0');
+  ps_port_map: for i in 0 to bsk_hbm_in'length - 1 generate
+    bsk_hbm_out(i)                            <= intermediate_hbm_read_out_pkgs_stack_0(i); --Throws away data from unused ports
+    intermediate_hbm_read_in_pkgs_stack_0(i)  <= bsk_hbm_in(i);                             --Throws away data from unused ports
+    -- connect bsk-channels-write to pcie
+    intermediate_hbm_write_in_pkgs_stack_0(i) <= hbm_write_in_pkgs_stack_0(i);
+    hbm_write_out_pkgs_stack_0(i)             <= intermediate_hbm_write_out_pkgs_stack_0(i);
   end generate;
+  -- -- no read for pcie on the bsk channels --> deactivate read feedback by driving those signals with 0
+  -- stack_0_no_pcie_read: for channel_idx in 0 to hbm_stack_num_ps_ports - 1 generate
+  --   hbm_read_out_pkgs_stack_0(channel_idx).arready      <= '0';
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rvalid       <= '0';
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rdata        <= (others => '0');
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rdata_parity <= (others => '0');
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rid          <= (others => '0');
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rlast        <= '0';
+  --   hbm_read_out_pkgs_stack_0(channel_idx).rresp        <= (others => '0');
+  -- end generate;
 
   -- connecting stack 1
   -- connect ai-channel-read to accelerator
   ai_hbm_out(0)                                         <= intermediate_hbm_read_out_pkgs_stack_1(channel_ai_idx);
   intermediate_hbm_read_in_pkgs_stack_1(channel_ai_idx) <= ai_hbm_in(0);
   -- info: channel op, lut & b directly are connected to the accelerator since they cannot consist of multiple channels
-  make_channels_active: for channel_idx in 0 to hbm_stack_1_num_write_channels - 1 generate
+  make_channels_active: for channel_idx in 0 to hbm_stack_1_num_write_channels-1 generate
     -- ai/op/lut/b-channel-read is connected to accelerator
     -- connect ai/op/lut/b-channel-write to pcie
     hbm_write_out_pkgs_stack_1(channel_idx)             <= intermediate_hbm_write_out_pkgs_stack_1(channel_idx);
     intermediate_hbm_write_in_pkgs_stack_1(channel_idx) <= hbm_write_in_pkgs_stack_1(channel_idx);
 
-    -- no read for pcie on these channels --> deactivate read feedback by driving those signals with 0
-    hbm_read_out_pkgs_stack_1(channel_idx).arready      <= '0';
-    hbm_read_out_pkgs_stack_1(channel_idx).rvalid       <= '0';
-    hbm_read_out_pkgs_stack_1(channel_idx).rdata        <= (others => '0');
-    hbm_read_out_pkgs_stack_1(channel_idx).rdata_parity <= (others => '0');
-    hbm_read_out_pkgs_stack_1(channel_idx).rid          <= (others => '0');
-    hbm_read_out_pkgs_stack_1(channel_idx).rlast        <= '0';
-    hbm_read_out_pkgs_stack_1(channel_idx).rresp        <= (others => '0');
+    -- -- no read for pcie on these channels --> deactivate read feedback by driving those signals with 0
+    -- hbm_read_out_pkgs_stack_1(channel_idx).arready      <= '0';
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rvalid       <= '0';
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rdata        <= (others => '0');
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rdata_parity <= (others => '0');
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rid          <= (others => '0');
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rlast        <= '0';
+    -- hbm_read_out_pkgs_stack_1(channel_idx).rresp        <= (others => '0');
   end generate;
 
   -- exception: result channel is the only one where accelerator can write and pcie can only read
@@ -1358,12 +1353,12 @@ begin
   intermediate_hbm_read_in_pkgs_stack_1(channel_result_idx) <= hbm_read_in_pkgs_stack_1(channel_result_idx);
   -- info: result-channel-write is directly connected to the pbs_lwe_n_storage
 
-  -- no write for pcie on the result channel --> deactivate read feedback by driving those signals with 0
-  hbm_write_out_pkgs_stack_1(channel_result_idx).awready <= '0';
-  hbm_write_out_pkgs_stack_1(channel_result_idx).bid     <= (others => '0');
-  hbm_write_out_pkgs_stack_1(channel_result_idx).bresp   <= (others => '0');
-  hbm_write_out_pkgs_stack_1(channel_result_idx).bvalid  <= '0';
-  hbm_write_out_pkgs_stack_1(channel_result_idx).wready  <= '0';
+  -- -- no write for pcie on the result channel --> deactivate read feedback by driving those signals with 0
+  -- hbm_write_out_pkgs_stack_1(channel_result_idx).awready <= '0';
+  -- hbm_write_out_pkgs_stack_1(channel_result_idx).bid     <= (others => '0');
+  -- hbm_write_out_pkgs_stack_1(channel_result_idx).bresp   <= (others => '0');
+  -- hbm_write_out_pkgs_stack_1(channel_result_idx).bvalid  <= '0';
+  -- hbm_write_out_pkgs_stack_1(channel_result_idx).wready  <= '0';
 
   --   -- the other channels of hbm stack 1 are unused --> deactivate read and write feedback for pcie by driving those signals with 0
   --   make_channels_inactive_1: for channel_idx in hbm_stack_1_num_used_channels to hbm_stack_num_ps_ports - 1 generate
@@ -1429,21 +1424,12 @@ begin
       o_done          => PBS_DONE
     );
 
-  process (TFHE_CLK) is
-  begin
-    if rising_edge(TFHE_CLK) then
-      hbm_reset_buf(0) <= AXI_ARESET_N;
-      hbm_reset_buf(1 to hbm_reset_buf'length - 1) <= hbm_reset_buf(0 to hbm_reset_buf'length - 2);
-    end if;
-  end process;
-  hbm_reset <= hbm_reset_buf(hbm_reset_buf'length-1);
-
   hbm_stack_0: entity work.hbm_wrapper_hbm_0_right
     port map (
       i_clk               => TFHE_CLK,
       HBM_REF_CLK_0       => HBM_REF_CLK_0,
       i_clk_apb           => APB_0_PCLK,
-      i_reset_n           => hbm_reset,
+      i_reset_n           => AXI_ARESET_N,
       i_reset_n_apb       => APB_0_PRESET_N,
       i_write_pkgs        => intermediate_hbm_write_in_pkgs_stack_0,
       i_read_pkgs         => intermediate_hbm_read_in_pkgs_stack_0, -- bsk_buf reads this hbm and thus delivers the read_in_pkg
@@ -1459,7 +1445,7 @@ begin
       i_clk               => TFHE_CLK,
       HBM_REF_CLK_0       => HBM_REF_CLK_1,
       i_clk_apb           => APB_0_PCLK,
-      i_reset_n           => hbm_reset,
+      i_reset_n           => AXI_ARESET_N,
       i_reset_n_apb       => APB_0_PRESET_N,
       i_write_pkgs        => intermediate_hbm_write_in_pkgs_stack_1,
       i_read_pkgs         => intermediate_hbm_read_in_pkgs_stack_1,
@@ -1740,7 +1726,6 @@ begin
   -- AXI_09_BID                                <= hbm_write_out_pkgs_stack_0(9).bid;
   -- AXI_09_BRESP                              <= hbm_write_out_pkgs_stack_0(9).bresp;
   -- AXI_09_BVALID                             <= hbm_write_out_pkgs_stack_0(9).bvalid;
-
   -- hbm_write_in_pkgs_stack_0(10).awid         <= AXI_10_AWID;
   -- hbm_write_in_pkgs_stack_0(10).awlen        <= AXI_10_AWLEN;
   -- hbm_write_in_pkgs_stack_0(10).awvalid      <= AXI_10_AWVALID;
@@ -1848,7 +1833,7 @@ begin
   -- AXI_13_BID                                 <= hbm_write_out_pkgs_stack_0(13).bid;
   -- AXI_13_BRESP                               <= hbm_write_out_pkgs_stack_0(13).bresp;
   -- AXI_13_BVALID                              <= hbm_write_out_pkgs_stack_0(13).bvalid;
-
+  
   -- hbm_write_in_pkgs_stack_0(14).awid         <= AXI_14_AWID;
   -- hbm_write_in_pkgs_stack_0(14).awlen        <= AXI_14_AWLEN;
   -- hbm_write_in_pkgs_stack_0(14).awvalid      <= AXI_14_AWVALID;
@@ -2038,301 +2023,300 @@ begin
   AXI_20_BRESP                              <= hbm_write_out_pkgs_stack_1(4).bresp;
   AXI_20_BVALID                             <= hbm_write_out_pkgs_stack_1(4).bvalid;
 
---   hbm_write_in_pkgs_stack_1(5).awid         <= AXI_21_AWID;
---   hbm_write_in_pkgs_stack_1(5).awlen        <= AXI_21_AWLEN;
---   hbm_write_in_pkgs_stack_1(5).awvalid      <= AXI_21_AWVALID;
---   hbm_write_in_pkgs_stack_1(5).awaddr       <= unsigned(AXI_21_AWADDR);
---   hbm_write_in_pkgs_stack_1(5).bready       <= AXI_21_BREADY;
---   hbm_write_in_pkgs_stack_1(5).wdata        <= AXI_21_WDATA;
---   hbm_write_in_pkgs_stack_1(5).wlast        <= AXI_21_WLAST;
---   hbm_write_in_pkgs_stack_1(5).wdata_parity <= AXI_21_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(5).wvalid       <= AXI_21_WVALID;
---   hbm_read_in_pkgs_stack_1(5).araddr        <= unsigned(AXI_21_ARADDR);
---   hbm_read_in_pkgs_stack_1(5).arid          <= AXI_21_ARID;
---   hbm_read_in_pkgs_stack_1(5).arlen         <= AXI_21_ARLEN;
---   hbm_read_in_pkgs_stack_1(5).arvalid       <= AXI_21_ARVALID;
---   hbm_read_in_pkgs_stack_1(5).rready        <= AXI_21_RREADY;
---   AXI_21_ARREADY                            <= hbm_read_out_pkgs_stack_1(5).arready;
---   AXI_21_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(5).rdata_parity;
---   AXI_21_RDATA                              <= hbm_read_out_pkgs_stack_1(5).rdata;
---   AXI_21_RID                                <= hbm_read_out_pkgs_stack_1(5).rid;
---   AXI_21_RLAST                              <= hbm_read_out_pkgs_stack_1(5).rlast;
---   AXI_21_RRESP                              <= hbm_read_out_pkgs_stack_1(5).rresp;
---   AXI_21_RVALID                             <= hbm_read_out_pkgs_stack_1(5).rvalid;
---   AXI_21_AWREADY                            <= hbm_write_out_pkgs_stack_1(5).awready;
---   AXI_21_WREADY                             <= hbm_write_out_pkgs_stack_1(5).wready;
---   AXI_21_BID                                <= hbm_write_out_pkgs_stack_1(5).bid;
---   AXI_21_BRESP                              <= hbm_write_out_pkgs_stack_1(5).bresp;
---   AXI_21_BVALID                             <= hbm_write_out_pkgs_stack_1(5).bvalid;
+  -- hbm_write_in_pkgs_stack_1(5).awid         <= AXI_21_AWID;
+  -- hbm_write_in_pkgs_stack_1(5).awlen        <= AXI_21_AWLEN;
+  -- hbm_write_in_pkgs_stack_1(5).awvalid      <= AXI_21_AWVALID;
+  -- hbm_write_in_pkgs_stack_1(5).awaddr       <= unsigned(AXI_21_AWADDR);
+  -- hbm_write_in_pkgs_stack_1(5).bready       <= AXI_21_BREADY;
+  -- hbm_write_in_pkgs_stack_1(5).wdata        <= AXI_21_WDATA;
+  -- hbm_write_in_pkgs_stack_1(5).wlast        <= AXI_21_WLAST;
+  -- hbm_write_in_pkgs_stack_1(5).wdata_parity <= AXI_21_WDATA_PARITY;
+  -- hbm_write_in_pkgs_stack_1(5).wvalid       <= AXI_21_WVALID;
+  -- hbm_read_in_pkgs_stack_1(5).araddr        <= unsigned(AXI_21_ARADDR);
+  -- hbm_read_in_pkgs_stack_1(5).arid          <= AXI_21_ARID;
+  -- hbm_read_in_pkgs_stack_1(5).arlen         <= AXI_21_ARLEN;
+  -- hbm_read_in_pkgs_stack_1(5).arvalid       <= AXI_21_ARVALID;
+  -- hbm_read_in_pkgs_stack_1(5).rready        <= AXI_21_RREADY;
+  -- AXI_21_ARREADY                            <= hbm_read_out_pkgs_stack_1(5).arready;
+  -- AXI_21_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(5).rdata_parity;
+  -- AXI_21_RDATA                              <= hbm_read_out_pkgs_stack_1(5).rdata;
+  -- AXI_21_RID                                <= hbm_read_out_pkgs_stack_1(5).rid;
+  -- AXI_21_RLAST                              <= hbm_read_out_pkgs_stack_1(5).rlast;
+  -- AXI_21_RRESP                              <= hbm_read_out_pkgs_stack_1(5).rresp;
+  -- AXI_21_RVALID                             <= hbm_read_out_pkgs_stack_1(5).rvalid;
+  -- AXI_21_AWREADY                            <= hbm_write_out_pkgs_stack_1(5).awready;
+  -- AXI_21_WREADY                             <= hbm_write_out_pkgs_stack_1(5).wready;
+  -- AXI_21_BID                                <= hbm_write_out_pkgs_stack_1(5).bid;
+  -- AXI_21_BRESP                              <= hbm_write_out_pkgs_stack_1(5).bresp;
+  -- AXI_21_BVALID                             <= hbm_write_out_pkgs_stack_1(5).bvalid;
 
---   hbm_write_in_pkgs_stack_1(6).awid         <= AXI_22_AWID;
---   hbm_write_in_pkgs_stack_1(6).awlen        <= AXI_22_AWLEN;
---   hbm_write_in_pkgs_stack_1(6).awvalid      <= AXI_22_AWVALID;
---   hbm_write_in_pkgs_stack_1(6).awaddr       <= unsigned(AXI_22_AWADDR);
---   hbm_write_in_pkgs_stack_1(6).bready       <= AXI_22_BREADY;
---   hbm_write_in_pkgs_stack_1(6).wdata        <= AXI_22_WDATA;
---   hbm_write_in_pkgs_stack_1(6).wlast        <= AXI_22_WLAST;
---   hbm_write_in_pkgs_stack_1(6).wdata_parity <= AXI_22_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(6).wvalid       <= AXI_22_WVALID;
---   hbm_read_in_pkgs_stack_1(6).araddr        <= unsigned(AXI_22_ARADDR);
---   hbm_read_in_pkgs_stack_1(6).arid          <= AXI_22_ARID;
---   hbm_read_in_pkgs_stack_1(6).arlen         <= AXI_22_ARLEN;
---   hbm_read_in_pkgs_stack_1(6).arvalid       <= AXI_22_ARVALID;
---   hbm_read_in_pkgs_stack_1(6).rready        <= AXI_22_RREADY;
---   AXI_22_ARREADY                            <= hbm_read_out_pkgs_stack_1(6).arready;
---   AXI_22_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(6).rdata_parity;
---   AXI_22_RDATA                              <= hbm_read_out_pkgs_stack_1(6).rdata;
---   AXI_22_RID                                <= hbm_read_out_pkgs_stack_1(6).rid;
---   AXI_22_RLAST                              <= hbm_read_out_pkgs_stack_1(6).rlast;
---   AXI_22_RRESP                              <= hbm_read_out_pkgs_stack_1(6).rresp;
---   AXI_22_RVALID                             <= hbm_read_out_pkgs_stack_1(6).rvalid;
---   AXI_22_AWREADY                            <= hbm_write_out_pkgs_stack_1(6).awready;
---   AXI_22_WREADY                             <= hbm_write_out_pkgs_stack_1(6).wready;
---   AXI_22_BID                                <= hbm_write_out_pkgs_stack_1(6).bid;
---   AXI_22_BRESP                              <= hbm_write_out_pkgs_stack_1(6).bresp;
---   AXI_22_BVALID                             <= hbm_write_out_pkgs_stack_1(6).bvalid;
+  --   hbm_write_in_pkgs_stack_1(6).awid         <= AXI_22_AWID;
+  --   hbm_write_in_pkgs_stack_1(6).awlen        <= AXI_22_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(6).awvalid      <= AXI_22_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(6).awaddr       <= unsigned(AXI_22_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(6).bready       <= AXI_22_BREADY;
+  --   hbm_write_in_pkgs_stack_1(6).wdata        <= AXI_22_WDATA;
+  --   hbm_write_in_pkgs_stack_1(6).wlast        <= AXI_22_WLAST;
+  --   hbm_write_in_pkgs_stack_1(6).wdata_parity <= AXI_22_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(6).wvalid       <= AXI_22_WVALID;
+  --   hbm_read_in_pkgs_stack_1(6).araddr        <= unsigned(AXI_22_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(6).arid          <= AXI_22_ARID;
+  --   hbm_read_in_pkgs_stack_1(6).arlen         <= AXI_22_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(6).arvalid       <= AXI_22_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(6).rready        <= AXI_22_RREADY;
+  --   AXI_22_ARREADY                            <= hbm_read_out_pkgs_stack_1(6).arready;
+  --   AXI_22_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(6).rdata_parity;
+  --   AXI_22_RDATA                              <= hbm_read_out_pkgs_stack_1(6).rdata;
+  --   AXI_22_RID                                <= hbm_read_out_pkgs_stack_1(6).rid;
+  --   AXI_22_RLAST                              <= hbm_read_out_pkgs_stack_1(6).rlast;
+  --   AXI_22_RRESP                              <= hbm_read_out_pkgs_stack_1(6).rresp;
+  --   AXI_22_RVALID                             <= hbm_read_out_pkgs_stack_1(6).rvalid;
+  --   AXI_22_AWREADY                            <= hbm_write_out_pkgs_stack_1(6).awready;
+  --   AXI_22_WREADY                             <= hbm_write_out_pkgs_stack_1(6).wready;
+  --   AXI_22_BID                                <= hbm_write_out_pkgs_stack_1(6).bid;
+  --   AXI_22_BRESP                              <= hbm_write_out_pkgs_stack_1(6).bresp;
+  --   AXI_22_BVALID                             <= hbm_write_out_pkgs_stack_1(6).bvalid;
 
---   hbm_write_in_pkgs_stack_1(7).awid         <= AXI_23_AWID;
---   hbm_write_in_pkgs_stack_1(7).awlen        <= AXI_23_AWLEN;
---   hbm_write_in_pkgs_stack_1(7).awvalid      <= AXI_23_AWVALID;
---   hbm_write_in_pkgs_stack_1(7).awaddr       <= unsigned(AXI_23_AWADDR);
---   hbm_write_in_pkgs_stack_1(7).bready       <= AXI_23_BREADY;
---   hbm_write_in_pkgs_stack_1(7).wdata        <= AXI_23_WDATA;
---   hbm_write_in_pkgs_stack_1(7).wlast        <= AXI_23_WLAST;
---   hbm_write_in_pkgs_stack_1(7).wdata_parity <= AXI_23_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(7).wvalid       <= AXI_23_WVALID;
---   hbm_read_in_pkgs_stack_1(7).araddr        <= unsigned(AXI_23_ARADDR);
---   hbm_read_in_pkgs_stack_1(7).arid          <= AXI_23_ARID;
---   hbm_read_in_pkgs_stack_1(7).arlen         <= AXI_23_ARLEN;
---   hbm_read_in_pkgs_stack_1(7).arvalid       <= AXI_23_ARVALID;
---   hbm_read_in_pkgs_stack_1(7).rready        <= AXI_23_RREADY;
---   AXI_23_ARREADY                            <= hbm_read_out_pkgs_stack_1(7).arready;
---   AXI_23_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(7).rdata_parity;
---   AXI_23_RDATA                              <= hbm_read_out_pkgs_stack_1(7).rdata;
---   AXI_23_RID                                <= hbm_read_out_pkgs_stack_1(7).rid;
---   AXI_23_RLAST                              <= hbm_read_out_pkgs_stack_1(7).rlast;
---   AXI_23_RRESP                              <= hbm_read_out_pkgs_stack_1(7).rresp;
---   AXI_23_RVALID                             <= hbm_read_out_pkgs_stack_1(7).rvalid;
---   AXI_23_AWREADY                            <= hbm_write_out_pkgs_stack_1(7).awready;
---   AXI_23_WREADY                             <= hbm_write_out_pkgs_stack_1(7).wready;
---   AXI_23_BID                                <= hbm_write_out_pkgs_stack_1(7).bid;
---   AXI_23_BRESP                              <= hbm_write_out_pkgs_stack_1(7).bresp;
---   AXI_23_BVALID                             <= hbm_write_out_pkgs_stack_1(7).bvalid;
+  --   hbm_write_in_pkgs_stack_1(7).awid         <= AXI_23_AWID;
+  --   hbm_write_in_pkgs_stack_1(7).awlen        <= AXI_23_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(7).awvalid      <= AXI_23_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(7).awaddr       <= unsigned(AXI_23_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(7).bready       <= AXI_23_BREADY;
+  --   hbm_write_in_pkgs_stack_1(7).wdata        <= AXI_23_WDATA;
+  --   hbm_write_in_pkgs_stack_1(7).wlast        <= AXI_23_WLAST;
+  --   hbm_write_in_pkgs_stack_1(7).wdata_parity <= AXI_23_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(7).wvalid       <= AXI_23_WVALID;
+  --   hbm_read_in_pkgs_stack_1(7).araddr        <= unsigned(AXI_23_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(7).arid          <= AXI_23_ARID;
+  --   hbm_read_in_pkgs_stack_1(7).arlen         <= AXI_23_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(7).arvalid       <= AXI_23_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(7).rready        <= AXI_23_RREADY;
+  --   AXI_23_ARREADY                            <= hbm_read_out_pkgs_stack_1(7).arready;
+  --   AXI_23_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(7).rdata_parity;
+  --   AXI_23_RDATA                              <= hbm_read_out_pkgs_stack_1(7).rdata;
+  --   AXI_23_RID                                <= hbm_read_out_pkgs_stack_1(7).rid;
+  --   AXI_23_RLAST                              <= hbm_read_out_pkgs_stack_1(7).rlast;
+  --   AXI_23_RRESP                              <= hbm_read_out_pkgs_stack_1(7).rresp;
+  --   AXI_23_RVALID                             <= hbm_read_out_pkgs_stack_1(7).rvalid;
+  --   AXI_23_AWREADY                            <= hbm_write_out_pkgs_stack_1(7).awready;
+  --   AXI_23_WREADY                             <= hbm_write_out_pkgs_stack_1(7).wready;
+  --   AXI_23_BID                                <= hbm_write_out_pkgs_stack_1(7).bid;
+  --   AXI_23_BRESP                              <= hbm_write_out_pkgs_stack_1(7).bresp;
+  --   AXI_23_BVALID                             <= hbm_write_out_pkgs_stack_1(7).bvalid;
 
---   hbm_write_in_pkgs_stack_1(8).awid         <= AXI_24_AWID;
---   hbm_write_in_pkgs_stack_1(8).awlen        <= AXI_24_AWLEN;
---   hbm_write_in_pkgs_stack_1(8).awvalid      <= AXI_24_AWVALID;
---   hbm_write_in_pkgs_stack_1(8).awaddr       <= unsigned(AXI_24_AWADDR);
---   hbm_write_in_pkgs_stack_1(8).bready       <= AXI_24_BREADY;
---   hbm_write_in_pkgs_stack_1(8).wdata        <= AXI_24_WDATA;
---   hbm_write_in_pkgs_stack_1(8).wlast        <= AXI_24_WLAST;
---   hbm_write_in_pkgs_stack_1(8).wdata_parity <= AXI_24_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(8).wvalid       <= AXI_24_WVALID;
---   hbm_read_in_pkgs_stack_1(8).araddr        <= unsigned(AXI_24_ARADDR);
---   hbm_read_in_pkgs_stack_1(8).arid          <= AXI_24_ARID;
---   hbm_read_in_pkgs_stack_1(8).arlen         <= AXI_24_ARLEN;
---   hbm_read_in_pkgs_stack_1(8).arvalid       <= AXI_24_ARVALID;
---   hbm_read_in_pkgs_stack_1(8).rready        <= AXI_24_RREADY;
---   AXI_24_ARREADY                            <= hbm_read_out_pkgs_stack_1(8).arready;
---   AXI_24_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(8).rdata_parity;
---   AXI_24_RDATA                              <= hbm_read_out_pkgs_stack_1(8).rdata;
---   AXI_24_RID                                <= hbm_read_out_pkgs_stack_1(8).rid;
---   AXI_24_RLAST                              <= hbm_read_out_pkgs_stack_1(8).rlast;
---   AXI_24_RRESP                              <= hbm_read_out_pkgs_stack_1(8).rresp;
---   AXI_24_RVALID                             <= hbm_read_out_pkgs_stack_1(8).rvalid;
---   AXI_24_AWREADY                            <= hbm_write_out_pkgs_stack_1(8).awready;
---   AXI_24_WREADY                             <= hbm_write_out_pkgs_stack_1(8).wready;
---   AXI_24_BID                                <= hbm_write_out_pkgs_stack_1(8).bid;
---   AXI_24_BRESP                              <= hbm_write_out_pkgs_stack_1(8).bresp;
---   AXI_24_BVALID                             <= hbm_write_out_pkgs_stack_1(8).bvalid;
+  --   hbm_write_in_pkgs_stack_1(8).awid         <= AXI_24_AWID;
+  --   hbm_write_in_pkgs_stack_1(8).awlen        <= AXI_24_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(8).awvalid      <= AXI_24_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(8).awaddr       <= unsigned(AXI_24_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(8).bready       <= AXI_24_BREADY;
+  --   hbm_write_in_pkgs_stack_1(8).wdata        <= AXI_24_WDATA;
+  --   hbm_write_in_pkgs_stack_1(8).wlast        <= AXI_24_WLAST;
+  --   hbm_write_in_pkgs_stack_1(8).wdata_parity <= AXI_24_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(8).wvalid       <= AXI_24_WVALID;
+  --   hbm_read_in_pkgs_stack_1(8).araddr        <= unsigned(AXI_24_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(8).arid          <= AXI_24_ARID;
+  --   hbm_read_in_pkgs_stack_1(8).arlen         <= AXI_24_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(8).arvalid       <= AXI_24_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(8).rready        <= AXI_24_RREADY;
+  --   AXI_24_ARREADY                            <= hbm_read_out_pkgs_stack_1(8).arready;
+  --   AXI_24_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(8).rdata_parity;
+  --   AXI_24_RDATA                              <= hbm_read_out_pkgs_stack_1(8).rdata;
+  --   AXI_24_RID                                <= hbm_read_out_pkgs_stack_1(8).rid;
+  --   AXI_24_RLAST                              <= hbm_read_out_pkgs_stack_1(8).rlast;
+  --   AXI_24_RRESP                              <= hbm_read_out_pkgs_stack_1(8).rresp;
+  --   AXI_24_RVALID                             <= hbm_read_out_pkgs_stack_1(8).rvalid;
+  --   AXI_24_AWREADY                            <= hbm_write_out_pkgs_stack_1(8).awready;
+  --   AXI_24_WREADY                             <= hbm_write_out_pkgs_stack_1(8).wready;
+  --   AXI_24_BID                                <= hbm_write_out_pkgs_stack_1(8).bid;
+  --   AXI_24_BRESP                              <= hbm_write_out_pkgs_stack_1(8).bresp;
+  --   AXI_24_BVALID                             <= hbm_write_out_pkgs_stack_1(8).bvalid;
 
---   hbm_write_in_pkgs_stack_1(9).awid         <= AXI_25_AWID;
---   hbm_write_in_pkgs_stack_1(9).awlen        <= AXI_25_AWLEN;
---   hbm_write_in_pkgs_stack_1(9).awvalid      <= AXI_25_AWVALID;
---   hbm_write_in_pkgs_stack_1(9).awaddr       <= unsigned(AXI_25_AWADDR);
---   hbm_write_in_pkgs_stack_1(9).bready       <= AXI_25_BREADY;
---   hbm_write_in_pkgs_stack_1(9).wdata        <= AXI_25_WDATA;
---   hbm_write_in_pkgs_stack_1(9).wlast        <= AXI_25_WLAST;
---   hbm_write_in_pkgs_stack_1(9).wdata_parity <= AXI_25_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(9).wvalid       <= AXI_25_WVALID;
---   hbm_read_in_pkgs_stack_1(9).araddr        <= unsigned(AXI_25_ARADDR);
---   hbm_read_in_pkgs_stack_1(9).arid          <= AXI_25_ARID;
---   hbm_read_in_pkgs_stack_1(9).arlen         <= AXI_25_ARLEN;
---   hbm_read_in_pkgs_stack_1(9).arvalid       <= AXI_25_ARVALID;
---   hbm_read_in_pkgs_stack_1(9).rready        <= AXI_25_RREADY;
---   AXI_25_ARREADY                            <= hbm_read_out_pkgs_stack_1(9).arready;
---   AXI_25_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(9).rdata_parity;
---   AXI_25_RDATA                              <= hbm_read_out_pkgs_stack_1(9).rdata;
---   AXI_25_RID                                <= hbm_read_out_pkgs_stack_1(9).rid;
---   AXI_25_RLAST                              <= hbm_read_out_pkgs_stack_1(9).rlast;
---   AXI_25_RRESP                              <= hbm_read_out_pkgs_stack_1(9).rresp;
---   AXI_25_RVALID                             <= hbm_read_out_pkgs_stack_1(9).rvalid;
---   AXI_25_AWREADY                            <= hbm_write_out_pkgs_stack_1(9).awready;
---   AXI_25_WREADY                             <= hbm_write_out_pkgs_stack_1(9).wready;
---   AXI_25_BID                                <= hbm_write_out_pkgs_stack_1(9).bid;
---   AXI_25_BRESP                              <= hbm_write_out_pkgs_stack_1(9).bresp;
---   AXI_25_BVALID                             <= hbm_write_out_pkgs_stack_1(9).bvalid;
+  --   hbm_write_in_pkgs_stack_1(9).awid         <= AXI_25_AWID;
+  --   hbm_write_in_pkgs_stack_1(9).awlen        <= AXI_25_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(9).awvalid      <= AXI_25_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(9).awaddr       <= unsigned(AXI_25_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(9).bready       <= AXI_25_BREADY;
+  --   hbm_write_in_pkgs_stack_1(9).wdata        <= AXI_25_WDATA;
+  --   hbm_write_in_pkgs_stack_1(9).wlast        <= AXI_25_WLAST;
+  --   hbm_write_in_pkgs_stack_1(9).wdata_parity <= AXI_25_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(9).wvalid       <= AXI_25_WVALID;
+  --   hbm_read_in_pkgs_stack_1(9).araddr        <= unsigned(AXI_25_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(9).arid          <= AXI_25_ARID;
+  --   hbm_read_in_pkgs_stack_1(9).arlen         <= AXI_25_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(9).arvalid       <= AXI_25_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(9).rready        <= AXI_25_RREADY;
+  --   AXI_25_ARREADY                            <= hbm_read_out_pkgs_stack_1(9).arready;
+  --   AXI_25_RDATA_PARITY                       <= hbm_read_out_pkgs_stack_1(9).rdata_parity;
+  --   AXI_25_RDATA                              <= hbm_read_out_pkgs_stack_1(9).rdata;
+  --   AXI_25_RID                                <= hbm_read_out_pkgs_stack_1(9).rid;
+  --   AXI_25_RLAST                              <= hbm_read_out_pkgs_stack_1(9).rlast;
+  --   AXI_25_RRESP                              <= hbm_read_out_pkgs_stack_1(9).rresp;
+  --   AXI_25_RVALID                             <= hbm_read_out_pkgs_stack_1(9).rvalid;
+  --   AXI_25_AWREADY                            <= hbm_write_out_pkgs_stack_1(9).awready;
+  --   AXI_25_WREADY                             <= hbm_write_out_pkgs_stack_1(9).wready;
+  --   AXI_25_BID                                <= hbm_write_out_pkgs_stack_1(9).bid;
+  --   AXI_25_BRESP                              <= hbm_write_out_pkgs_stack_1(9).bresp;
+  --   AXI_25_BVALID                             <= hbm_write_out_pkgs_stack_1(9).bvalid;
 
---   hbm_write_in_pkgs_stack_1(10).awid         <= AXI_26_AWID;
---   hbm_write_in_pkgs_stack_1(10).awlen        <= AXI_26_AWLEN;
---   hbm_write_in_pkgs_stack_1(10).awvalid      <= AXI_26_AWVALID;
---   hbm_write_in_pkgs_stack_1(10).awaddr       <= unsigned(AXI_26_AWADDR);
---   hbm_write_in_pkgs_stack_1(10).bready       <= AXI_26_BREADY;
---   hbm_write_in_pkgs_stack_1(10).wdata        <= AXI_26_WDATA;
---   hbm_write_in_pkgs_stack_1(10).wlast        <= AXI_26_WLAST;
---   hbm_write_in_pkgs_stack_1(10).wdata_parity <= AXI_26_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(10).wvalid       <= AXI_26_WVALID;
---   hbm_read_in_pkgs_stack_1(10).araddr        <= unsigned(AXI_26_ARADDR);
---   hbm_read_in_pkgs_stack_1(10).arid          <= AXI_26_ARID;
---   hbm_read_in_pkgs_stack_1(10).arlen         <= AXI_26_ARLEN;
---   hbm_read_in_pkgs_stack_1(10).arvalid       <= AXI_26_ARVALID;
---   hbm_read_in_pkgs_stack_1(10).rready        <= AXI_26_RREADY;
---   AXI_26_ARREADY                             <= hbm_read_out_pkgs_stack_1(10).arready;
---   AXI_26_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(10).rdata_parity;
---   AXI_26_RDATA                               <= hbm_read_out_pkgs_stack_1(10).rdata;
---   AXI_26_RID                                 <= hbm_read_out_pkgs_stack_1(10).rid;
---   AXI_26_RLAST                               <= hbm_read_out_pkgs_stack_1(10).rlast;
---   AXI_26_RRESP                               <= hbm_read_out_pkgs_stack_1(10).rresp;
---   AXI_26_RVALID                              <= hbm_read_out_pkgs_stack_1(10).rvalid;
---   AXI_26_AWREADY                             <= hbm_write_out_pkgs_stack_1(10).awready;
---   AXI_26_WREADY                              <= hbm_write_out_pkgs_stack_1(10).wready;
---   AXI_26_BID                                 <= hbm_write_out_pkgs_stack_1(10).bid;
---   AXI_26_BRESP                               <= hbm_write_out_pkgs_stack_1(10).bresp;
---   AXI_26_BVALID                              <= hbm_write_out_pkgs_stack_1(10).bvalid;
+  --   hbm_write_in_pkgs_stack_1(10).awid         <= AXI_26_AWID;
+  --   hbm_write_in_pkgs_stack_1(10).awlen        <= AXI_26_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(10).awvalid      <= AXI_26_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(10).awaddr       <= unsigned(AXI_26_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(10).bready       <= AXI_26_BREADY;
+  --   hbm_write_in_pkgs_stack_1(10).wdata        <= AXI_26_WDATA;
+  --   hbm_write_in_pkgs_stack_1(10).wlast        <= AXI_26_WLAST;
+  --   hbm_write_in_pkgs_stack_1(10).wdata_parity <= AXI_26_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(10).wvalid       <= AXI_26_WVALID;
+  --   hbm_read_in_pkgs_stack_1(10).araddr        <= unsigned(AXI_26_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(10).arid          <= AXI_26_ARID;
+  --   hbm_read_in_pkgs_stack_1(10).arlen         <= AXI_26_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(10).arvalid       <= AXI_26_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(10).rready        <= AXI_26_RREADY;
+  --   AXI_26_ARREADY                             <= hbm_read_out_pkgs_stack_1(10).arready;
+  --   AXI_26_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(10).rdata_parity;
+  --   AXI_26_RDATA                               <= hbm_read_out_pkgs_stack_1(10).rdata;
+  --   AXI_26_RID                                 <= hbm_read_out_pkgs_stack_1(10).rid;
+  --   AXI_26_RLAST                               <= hbm_read_out_pkgs_stack_1(10).rlast;
+  --   AXI_26_RRESP                               <= hbm_read_out_pkgs_stack_1(10).rresp;
+  --   AXI_26_RVALID                              <= hbm_read_out_pkgs_stack_1(10).rvalid;
+  --   AXI_26_AWREADY                             <= hbm_write_out_pkgs_stack_1(10).awready;
+  --   AXI_26_WREADY                              <= hbm_write_out_pkgs_stack_1(10).wready;
+  --   AXI_26_BID                                 <= hbm_write_out_pkgs_stack_1(10).bid;
+  --   AXI_26_BRESP                               <= hbm_write_out_pkgs_stack_1(10).bresp;
+  --   AXI_26_BVALID                              <= hbm_write_out_pkgs_stack_1(10).bvalid;
 
---   hbm_write_in_pkgs_stack_1(11).awid         <= AXI_27_AWID;
---   hbm_write_in_pkgs_stack_1(11).awlen        <= AXI_27_AWLEN;
---   hbm_write_in_pkgs_stack_1(11).awvalid      <= AXI_27_AWVALID;
---   hbm_write_in_pkgs_stack_1(11).awaddr       <= unsigned(AXI_27_AWADDR);
---   hbm_write_in_pkgs_stack_1(11).bready       <= AXI_27_BREADY;
---   hbm_write_in_pkgs_stack_1(11).wdata        <= AXI_27_WDATA;
---   hbm_write_in_pkgs_stack_1(11).wlast        <= AXI_27_WLAST;
---   hbm_write_in_pkgs_stack_1(11).wdata_parity <= AXI_27_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(11).wvalid       <= AXI_27_WVALID;
---   hbm_read_in_pkgs_stack_1(11).araddr        <= unsigned(AXI_27_ARADDR);
---   hbm_read_in_pkgs_stack_1(11).arid          <= AXI_27_ARID;
---   hbm_read_in_pkgs_stack_1(11).arlen         <= AXI_27_ARLEN;
---   hbm_read_in_pkgs_stack_1(11).arvalid       <= AXI_27_ARVALID;
---   hbm_read_in_pkgs_stack_1(11).rready        <= AXI_27_RREADY;
---   AXI_27_ARREADY                             <= hbm_read_out_pkgs_stack_1(11).arready;
---   AXI_27_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(11).rdata_parity;
---   AXI_27_RDATA                               <= hbm_read_out_pkgs_stack_1(11).rdata;
---   AXI_27_RID                                 <= hbm_read_out_pkgs_stack_1(11).rid;
---   AXI_27_RLAST                               <= hbm_read_out_pkgs_stack_1(11).rlast;
---   AXI_27_RRESP                               <= hbm_read_out_pkgs_stack_1(11).rresp;
---   AXI_27_RVALID                              <= hbm_read_out_pkgs_stack_1(11).rvalid;
---   AXI_27_AWREADY                             <= hbm_write_out_pkgs_stack_1(11).awready;
---   AXI_27_WREADY                              <= hbm_write_out_pkgs_stack_1(11).wready;
---   AXI_27_BID                                 <= hbm_write_out_pkgs_stack_1(11).bid;
---   AXI_27_BRESP                               <= hbm_write_out_pkgs_stack_1(11).bresp;
---   AXI_27_BVALID                              <= hbm_write_out_pkgs_stack_1(11).bvalid;
+  --   hbm_write_in_pkgs_stack_1(11).awid         <= AXI_27_AWID;
+  --   hbm_write_in_pkgs_stack_1(11).awlen        <= AXI_27_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(11).awvalid      <= AXI_27_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(11).awaddr       <= unsigned(AXI_27_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(11).bready       <= AXI_27_BREADY;
+  --   hbm_write_in_pkgs_stack_1(11).wdata        <= AXI_27_WDATA;
+  --   hbm_write_in_pkgs_stack_1(11).wlast        <= AXI_27_WLAST;
+  --   hbm_write_in_pkgs_stack_1(11).wdata_parity <= AXI_27_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(11).wvalid       <= AXI_27_WVALID;
+  --   hbm_read_in_pkgs_stack_1(11).araddr        <= unsigned(AXI_27_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(11).arid          <= AXI_27_ARID;
+  --   hbm_read_in_pkgs_stack_1(11).arlen         <= AXI_27_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(11).arvalid       <= AXI_27_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(11).rready        <= AXI_27_RREADY;
+  --   AXI_27_ARREADY                             <= hbm_read_out_pkgs_stack_1(11).arready;
+  --   AXI_27_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(11).rdata_parity;
+  --   AXI_27_RDATA                               <= hbm_read_out_pkgs_stack_1(11).rdata;
+  --   AXI_27_RID                                 <= hbm_read_out_pkgs_stack_1(11).rid;
+  --   AXI_27_RLAST                               <= hbm_read_out_pkgs_stack_1(11).rlast;
+  --   AXI_27_RRESP                               <= hbm_read_out_pkgs_stack_1(11).rresp;
+  --   AXI_27_RVALID                              <= hbm_read_out_pkgs_stack_1(11).rvalid;
+  --   AXI_27_AWREADY                             <= hbm_write_out_pkgs_stack_1(11).awready;
+  --   AXI_27_WREADY                              <= hbm_write_out_pkgs_stack_1(11).wready;
+  --   AXI_27_BID                                 <= hbm_write_out_pkgs_stack_1(11).bid;
+  --   AXI_27_BRESP                               <= hbm_write_out_pkgs_stack_1(11).bresp;
+  --   AXI_27_BVALID                              <= hbm_write_out_pkgs_stack_1(11).bvalid;
 
---   hbm_write_in_pkgs_stack_1(12).awid         <= AXI_28_AWID;
---   hbm_write_in_pkgs_stack_1(12).awlen        <= AXI_28_AWLEN;
---   hbm_write_in_pkgs_stack_1(12).awvalid      <= AXI_28_AWVALID;
---   hbm_write_in_pkgs_stack_1(12).awaddr       <= unsigned(AXI_28_AWADDR);
---   hbm_write_in_pkgs_stack_1(12).bready       <= AXI_28_BREADY;
---   hbm_write_in_pkgs_stack_1(12).wdata        <= AXI_28_WDATA;
---   hbm_write_in_pkgs_stack_1(12).wlast        <= AXI_28_WLAST;
---   hbm_write_in_pkgs_stack_1(12).wdata_parity <= AXI_28_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(12).wvalid       <= AXI_28_WVALID;
---   hbm_read_in_pkgs_stack_1(12).araddr        <= unsigned(AXI_28_ARADDR);
---   hbm_read_in_pkgs_stack_1(12).arid          <= AXI_28_ARID;
---   hbm_read_in_pkgs_stack_1(12).arlen         <= AXI_28_ARLEN;
---   hbm_read_in_pkgs_stack_1(12).arvalid       <= AXI_28_ARVALID;
---   hbm_read_in_pkgs_stack_1(12).rready        <= AXI_28_RREADY;
---   AXI_28_ARREADY                             <= hbm_read_out_pkgs_stack_1(12).arready;
---   AXI_28_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(12).rdata_parity;
---   AXI_28_RDATA                               <= hbm_read_out_pkgs_stack_1(12).rdata;
---   AXI_28_RID                                 <= hbm_read_out_pkgs_stack_1(12).rid;
---   AXI_28_RLAST                               <= hbm_read_out_pkgs_stack_1(12).rlast;
---   AXI_28_RRESP                               <= hbm_read_out_pkgs_stack_1(12).rresp;
---   AXI_28_RVALID                              <= hbm_read_out_pkgs_stack_1(12).rvalid;
---   AXI_28_AWREADY                             <= hbm_write_out_pkgs_stack_1(12).awready;
---   AXI_28_WREADY                              <= hbm_write_out_pkgs_stack_1(12).wready;
---   AXI_28_BID                                 <= hbm_write_out_pkgs_stack_1(12).bid;
---   AXI_28_BRESP                               <= hbm_write_out_pkgs_stack_1(12).bresp;
---   AXI_28_BVALID                              <= hbm_write_out_pkgs_stack_1(12).bvalid;
+  --   hbm_write_in_pkgs_stack_1(12).awid         <= AXI_28_AWID;
+  --   hbm_write_in_pkgs_stack_1(12).awlen        <= AXI_28_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(12).awvalid      <= AXI_28_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(12).awaddr       <= unsigned(AXI_28_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(12).bready       <= AXI_28_BREADY;
+  --   hbm_write_in_pkgs_stack_1(12).wdata        <= AXI_28_WDATA;
+  --   hbm_write_in_pkgs_stack_1(12).wlast        <= AXI_28_WLAST;
+  --   hbm_write_in_pkgs_stack_1(12).wdata_parity <= AXI_28_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(12).wvalid       <= AXI_28_WVALID;
+  --   hbm_read_in_pkgs_stack_1(12).araddr        <= unsigned(AXI_28_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(12).arid          <= AXI_28_ARID;
+  --   hbm_read_in_pkgs_stack_1(12).arlen         <= AXI_28_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(12).arvalid       <= AXI_28_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(12).rready        <= AXI_28_RREADY;
+  --   AXI_28_ARREADY                             <= hbm_read_out_pkgs_stack_1(12).arready;
+  --   AXI_28_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(12).rdata_parity;
+  --   AXI_28_RDATA                               <= hbm_read_out_pkgs_stack_1(12).rdata;
+  --   AXI_28_RID                                 <= hbm_read_out_pkgs_stack_1(12).rid;
+  --   AXI_28_RLAST                               <= hbm_read_out_pkgs_stack_1(12).rlast;
+  --   AXI_28_RRESP                               <= hbm_read_out_pkgs_stack_1(12).rresp;
+  --   AXI_28_RVALID                              <= hbm_read_out_pkgs_stack_1(12).rvalid;
+  --   AXI_28_AWREADY                             <= hbm_write_out_pkgs_stack_1(12).awready;
+  --   AXI_28_WREADY                              <= hbm_write_out_pkgs_stack_1(12).wready;
+  --   AXI_28_BID                                 <= hbm_write_out_pkgs_stack_1(12).bid;
+  --   AXI_28_BRESP                               <= hbm_write_out_pkgs_stack_1(12).bresp;
+  --   AXI_28_BVALID                              <= hbm_write_out_pkgs_stack_1(12).bvalid;
 
---   hbm_write_in_pkgs_stack_1(13).awid         <= AXI_29_AWID;
---   hbm_write_in_pkgs_stack_1(13).awlen        <= AXI_29_AWLEN;
---   hbm_write_in_pkgs_stack_1(13).awvalid      <= AXI_29_AWVALID;
---   hbm_write_in_pkgs_stack_1(13).awaddr       <= unsigned(AXI_29_AWADDR);
---   hbm_write_in_pkgs_stack_1(13).bready       <= AXI_29_BREADY;
---   hbm_write_in_pkgs_stack_1(13).wdata        <= AXI_29_WDATA;
---   hbm_write_in_pkgs_stack_1(13).wlast        <= AXI_29_WLAST;
---   hbm_write_in_pkgs_stack_1(13).wdata_parity <= AXI_29_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(13).wvalid       <= AXI_29_WVALID;
---   hbm_read_in_pkgs_stack_1(13).araddr        <= unsigned(AXI_29_ARADDR);
---   hbm_read_in_pkgs_stack_1(13).arid          <= AXI_29_ARID;
---   hbm_read_in_pkgs_stack_1(13).arlen         <= AXI_29_ARLEN;
---   hbm_read_in_pkgs_stack_1(13).arvalid       <= AXI_29_ARVALID;
---   hbm_read_in_pkgs_stack_1(13).rready        <= AXI_29_RREADY;
---   AXI_29_ARREADY                             <= hbm_read_out_pkgs_stack_1(13).arready;
---   AXI_29_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(13).rdata_parity;
---   AXI_29_RDATA                               <= hbm_read_out_pkgs_stack_1(13).rdata;
---   AXI_29_RID                                 <= hbm_read_out_pkgs_stack_1(13).rid;
---   AXI_29_RLAST                               <= hbm_read_out_pkgs_stack_1(13).rlast;
---   AXI_29_RRESP                               <= hbm_read_out_pkgs_stack_1(13).rresp;
---   AXI_29_RVALID                              <= hbm_read_out_pkgs_stack_1(13).rvalid;
---   AXI_29_AWREADY                             <= hbm_write_out_pkgs_stack_1(13).awready;
---   AXI_29_WREADY                              <= hbm_write_out_pkgs_stack_1(13).wready;
---   AXI_29_BID                                 <= hbm_write_out_pkgs_stack_1(13).bid;
---   AXI_29_BRESP                               <= hbm_write_out_pkgs_stack_1(13).bresp;
---   AXI_29_BVALID                              <= hbm_write_out_pkgs_stack_1(13).bvalid;
+  --   hbm_write_in_pkgs_stack_1(13).awid         <= AXI_29_AWID;
+  --   hbm_write_in_pkgs_stack_1(13).awlen        <= AXI_29_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(13).awvalid      <= AXI_29_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(13).awaddr       <= unsigned(AXI_29_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(13).bready       <= AXI_29_BREADY;
+  --   hbm_write_in_pkgs_stack_1(13).wdata        <= AXI_29_WDATA;
+  --   hbm_write_in_pkgs_stack_1(13).wlast        <= AXI_29_WLAST;
+  --   hbm_write_in_pkgs_stack_1(13).wdata_parity <= AXI_29_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(13).wvalid       <= AXI_29_WVALID;
+  --   hbm_read_in_pkgs_stack_1(13).araddr        <= unsigned(AXI_29_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(13).arid          <= AXI_29_ARID;
+  --   hbm_read_in_pkgs_stack_1(13).arlen         <= AXI_29_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(13).arvalid       <= AXI_29_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(13).rready        <= AXI_29_RREADY;
+  --   AXI_29_ARREADY                             <= hbm_read_out_pkgs_stack_1(13).arready;
+  --   AXI_29_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(13).rdata_parity;
+  --   AXI_29_RDATA                               <= hbm_read_out_pkgs_stack_1(13).rdata;
+  --   AXI_29_RID                                 <= hbm_read_out_pkgs_stack_1(13).rid;
+  --   AXI_29_RLAST                               <= hbm_read_out_pkgs_stack_1(13).rlast;
+  --   AXI_29_RRESP                               <= hbm_read_out_pkgs_stack_1(13).rresp;
+  --   AXI_29_RVALID                              <= hbm_read_out_pkgs_stack_1(13).rvalid;
+  --   AXI_29_AWREADY                             <= hbm_write_out_pkgs_stack_1(13).awready;
+  --   AXI_29_WREADY                              <= hbm_write_out_pkgs_stack_1(13).wready;
+  --   AXI_29_BID                                 <= hbm_write_out_pkgs_stack_1(13).bid;
+  --   AXI_29_BRESP                               <= hbm_write_out_pkgs_stack_1(13).bresp;
+  --   AXI_29_BVALID                              <= hbm_write_out_pkgs_stack_1(13).bvalid;
 
---   hbm_write_in_pkgs_stack_1(14).awid         <= AXI_30_AWID;
---   hbm_write_in_pkgs_stack_1(14).awlen        <= AXI_30_AWLEN;
---   hbm_write_in_pkgs_stack_1(14).awvalid      <= AXI_30_AWVALID;
---   hbm_write_in_pkgs_stack_1(14).awaddr       <= unsigned(AXI_30_AWADDR);
---   hbm_write_in_pkgs_stack_1(14).bready       <= AXI_30_BREADY;
---   hbm_write_in_pkgs_stack_1(14).wdata        <= AXI_30_WDATA;
---   hbm_write_in_pkgs_stack_1(14).wlast        <= AXI_30_WLAST;
---   hbm_write_in_pkgs_stack_1(14).wdata_parity <= AXI_30_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(14).wvalid       <= AXI_30_WVALID;
---   hbm_read_in_pkgs_stack_1(14).araddr        <= unsigned(AXI_30_ARADDR);
---   hbm_read_in_pkgs_stack_1(14).arid          <= AXI_30_ARID;
---   hbm_read_in_pkgs_stack_1(14).arlen         <= AXI_30_ARLEN;
---   hbm_read_in_pkgs_stack_1(14).arvalid       <= AXI_30_ARVALID;
---   hbm_read_in_pkgs_stack_1(14).rready        <= AXI_30_RREADY;
---   AXI_30_ARREADY                             <= hbm_read_out_pkgs_stack_1(14).arready;
---   AXI_30_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(14).rdata_parity;
---   AXI_30_RDATA                               <= hbm_read_out_pkgs_stack_1(14).rdata;
---   AXI_30_RID                                 <= hbm_read_out_pkgs_stack_1(14).rid;
---   AXI_30_RLAST                               <= hbm_read_out_pkgs_stack_1(14).rlast;
---   AXI_30_RRESP                               <= hbm_read_out_pkgs_stack_1(14).rresp;
---   AXI_30_RVALID                              <= hbm_read_out_pkgs_stack_1(14).rvalid;
---   AXI_30_AWREADY                             <= hbm_write_out_pkgs_stack_1(14).awready;
---   AXI_30_WREADY                              <= hbm_write_out_pkgs_stack_1(14).wready;
---   AXI_30_BID                                 <= hbm_write_out_pkgs_stack_1(14).bid;
---   AXI_30_BRESP                               <= hbm_write_out_pkgs_stack_1(14).bresp;
---   AXI_30_BVALID                              <= hbm_write_out_pkgs_stack_1(14).bvalid;
+  --   hbm_write_in_pkgs_stack_1(14).awid         <= AXI_30_AWID;
+  --   hbm_write_in_pkgs_stack_1(14).awlen        <= AXI_30_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(14).awvalid      <= AXI_30_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(14).awaddr       <= unsigned(AXI_30_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(14).bready       <= AXI_30_BREADY;
+  --   hbm_write_in_pkgs_stack_1(14).wdata        <= AXI_30_WDATA;
+  --   hbm_write_in_pkgs_stack_1(14).wlast        <= AXI_30_WLAST;
+  --   hbm_write_in_pkgs_stack_1(14).wdata_parity <= AXI_30_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(14).wvalid       <= AXI_30_WVALID;
+  --   hbm_read_in_pkgs_stack_1(14).araddr        <= unsigned(AXI_30_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(14).arid          <= AXI_30_ARID;
+  --   hbm_read_in_pkgs_stack_1(14).arlen         <= AXI_30_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(14).arvalid       <= AXI_30_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(14).rready        <= AXI_30_RREADY;
+  --   AXI_30_ARREADY                             <= hbm_read_out_pkgs_stack_1(14).arready;
+  --   AXI_30_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(14).rdata_parity;
+  --   AXI_30_RDATA                               <= hbm_read_out_pkgs_stack_1(14).rdata;
+  --   AXI_30_RID                                 <= hbm_read_out_pkgs_stack_1(14).rid;
+  --   AXI_30_RLAST                               <= hbm_read_out_pkgs_stack_1(14).rlast;
+  --   AXI_30_RRESP                               <= hbm_read_out_pkgs_stack_1(14).rresp;
+  --   AXI_30_RVALID                              <= hbm_read_out_pkgs_stack_1(14).rvalid;
+  --   AXI_30_AWREADY                             <= hbm_write_out_pkgs_stack_1(14).awready;
+  --   AXI_30_WREADY                              <= hbm_write_out_pkgs_stack_1(14).wready;
+  --   AXI_30_BID                                 <= hbm_write_out_pkgs_stack_1(14).bid;
+  --   AXI_30_BRESP                               <= hbm_write_out_pkgs_stack_1(14).bresp;
+  --   AXI_30_BVALID                              <= hbm_write_out_pkgs_stack_1(14).bvalid;
 
---   hbm_write_in_pkgs_stack_1(15).awid         <= AXI_31_AWID;
---   hbm_write_in_pkgs_stack_1(15).awlen        <= AXI_31_AWLEN;
---   hbm_write_in_pkgs_stack_1(15).awvalid      <= AXI_31_AWVALID;
---   hbm_write_in_pkgs_stack_1(15).awaddr       <= unsigned(AXI_31_AWADDR);
---   hbm_write_in_pkgs_stack_1(15).bready       <= AXI_31_BREADY;
---   hbm_write_in_pkgs_stack_1(15).wdata        <= AXI_31_WDATA;
---   hbm_write_in_pkgs_stack_1(15).wlast        <= AXI_31_WLAST;
---   hbm_write_in_pkgs_stack_1(15).wdata_parity <= AXI_31_WDATA_PARITY;
---   hbm_write_in_pkgs_stack_1(15).wvalid       <= AXI_31_WVALID;
---   hbm_read_in_pkgs_stack_1(15).araddr        <= unsigned(AXI_31_ARADDR);
---   hbm_read_in_pkgs_stack_1(15).arid          <= AXI_31_ARID;
---   hbm_read_in_pkgs_stack_1(15).arlen         <= AXI_31_ARLEN;
---   hbm_read_in_pkgs_stack_1(15).arvalid       <= AXI_31_ARVALID;
---   hbm_read_in_pkgs_stack_1(15).rready        <= AXI_31_RREADY;
---   AXI_31_ARREADY                             <= hbm_read_out_pkgs_stack_1(15).arready;
---   AXI_31_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(15).rdata_parity;
---   AXI_31_RDATA                               <= hbm_read_out_pkgs_stack_1(15).rdata;
---   AXI_31_RID                                 <= hbm_read_out_pkgs_stack_1(15).rid;
---   AXI_31_RLAST                               <= hbm_read_out_pkgs_stack_1(15).rlast;
---   AXI_31_RRESP                               <= hbm_read_out_pkgs_stack_1(15).rresp;
---   AXI_31_RVALID                              <= hbm_read_out_pkgs_stack_1(15).rvalid;
---   AXI_31_AWREADY                             <= hbm_write_out_pkgs_stack_1(15).awready;
---   AXI_31_WREADY                              <= hbm_write_out_pkgs_stack_1(15).wready;
---   AXI_31_BID                                 <= hbm_write_out_pkgs_stack_1(15).bid;
---   AXI_31_BRESP                               <= hbm_write_out_pkgs_stack_1(15).bresp;
---   AXI_31_BVALID                              <= hbm_write_out_pkgs_stack_1(15).bvalid;
-
+  --   hbm_write_in_pkgs_stack_1(15).awid         <= AXI_31_AWID;
+  --   hbm_write_in_pkgs_stack_1(15).awlen        <= AXI_31_AWLEN;
+  --   hbm_write_in_pkgs_stack_1(15).awvalid      <= AXI_31_AWVALID;
+  --   hbm_write_in_pkgs_stack_1(15).awaddr       <= unsigned(AXI_31_AWADDR);
+  --   hbm_write_in_pkgs_stack_1(15).bready       <= AXI_31_BREADY;
+  --   hbm_write_in_pkgs_stack_1(15).wdata        <= AXI_31_WDATA;
+  --   hbm_write_in_pkgs_stack_1(15).wlast        <= AXI_31_WLAST;
+  --   hbm_write_in_pkgs_stack_1(15).wdata_parity <= AXI_31_WDATA_PARITY;
+  --   hbm_write_in_pkgs_stack_1(15).wvalid       <= AXI_31_WVALID;
+  --   hbm_read_in_pkgs_stack_1(15).araddr        <= unsigned(AXI_31_ARADDR);
+  --   hbm_read_in_pkgs_stack_1(15).arid          <= AXI_31_ARID;
+  --   hbm_read_in_pkgs_stack_1(15).arlen         <= AXI_31_ARLEN;
+  --   hbm_read_in_pkgs_stack_1(15).arvalid       <= AXI_31_ARVALID;
+  --   hbm_read_in_pkgs_stack_1(15).rready        <= AXI_31_RREADY;
+  --   AXI_31_ARREADY                             <= hbm_read_out_pkgs_stack_1(15).arready;
+  --   AXI_31_RDATA_PARITY                        <= hbm_read_out_pkgs_stack_1(15).rdata_parity;
+  --   AXI_31_RDATA                               <= hbm_read_out_pkgs_stack_1(15).rdata;
+  --   AXI_31_RID                                 <= hbm_read_out_pkgs_stack_1(15).rid;
+  --   AXI_31_RLAST                               <= hbm_read_out_pkgs_stack_1(15).rlast;
+  --   AXI_31_RRESP                               <= hbm_read_out_pkgs_stack_1(15).rresp;
+  --   AXI_31_RVALID                              <= hbm_read_out_pkgs_stack_1(15).rvalid;
+  --   AXI_31_AWREADY                             <= hbm_write_out_pkgs_stack_1(15).awready;
+  --   AXI_31_WREADY                              <= hbm_write_out_pkgs_stack_1(15).wready;
+  --   AXI_31_BID                                 <= hbm_write_out_pkgs_stack_1(15).bid;
+  --   AXI_31_BRESP                               <= hbm_write_out_pkgs_stack_1(15).bresp;
+  --   AXI_31_BVALID                              <= hbm_write_out_pkgs_stack_1(15).bvalid;
 end architecture;

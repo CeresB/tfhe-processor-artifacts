@@ -288,7 +288,7 @@ begin
                generic map (
                     addr_length         => bram_write_addrs(0)'length,
                     ram_length          => bski_buf_length,
-                    ram_out_bufs_length => default_ram_retiming_latency+(bski_buffer_output_buffer-1),
+                    ram_out_bufs_length => bski_buffer_output_buffer,
                     ram_type            => ram_style_bram,
                     coeff_bit_width     => bski_buf_input(0)'length
                )
@@ -317,7 +317,7 @@ begin
      -- when reading from the buffer treat all hbm-channel-buffers like one
      initial_latency_counter: one_time_counter
           generic map (
-               tripping_value     => blind_rot_iter_latency_till_elem_wise_mult - default_ram_retiming_latency - bski_buffer_output_buffer - 1*boolean'pos(use_hbm_output_buffer),
+               tripping_value     => blind_rot_iter_latency_till_elem_wise_mult - 1 - bski_buffer_output_buffer - 1*boolean'pos(use_hbm_output_buffer),
                out_negated        => false,
                bufferchain_length => log2_pbs_throughput
           )

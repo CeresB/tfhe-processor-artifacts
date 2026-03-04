@@ -270,7 +270,7 @@ begin
 
      initial_latency_counter: one_time_counter
           generic map (
-               tripping_value     => blind_rot_iter_latency_till_ready_for_ai - default_ram_retiming_latency - ai_buffer_output_buffer,
+               tripping_value     => blind_rot_iter_latency_till_ready_for_ai - ai_buffer_output_buffer - 1,
                out_negated        => false,
                bufferchain_length => log2_pbs_throughput
           )
@@ -303,7 +303,7 @@ begin
                generic map (
                     addr_length         => out_batchsize_cnt_to_use'length,
                     ram_length          => ram_len,
-                    ram_out_bufs_length => default_ram_retiming_latency+(ai_buffer_output_buffer-1),
+                    ram_out_bufs_length => ai_buffer_output_buffer,
                     ram_type            => ram_style_auto,
                     coeff_bit_width     => o_ai_coeff'length
                )
