@@ -47,7 +47,7 @@ end entity;
 architecture Behavioral of karazuba_mult_dsp_level is
 
      constant half_base : integer := base_len / 2;         --rounded down, 16 bit
-     constant rest_base : integer := base_len - half_base; -- 17 bit
+     constant rest_base : integer := base_len - half_base; -- 16 bit
      subtype half_reg is unsigned(0 to half_base - 1);
      subtype half_rest_reg is unsigned(0 to rest_base - 1);
 
@@ -67,9 +67,9 @@ architecture Behavioral of karazuba_mult_dsp_level is
      signal b0_buf2     : half_reg;
      signal b1_buf2     : half_rest_reg;
 
-     signal p1 : full_rest_reg; -- 17x17 bit
+     signal p1 : full_rest_reg; -- 16x16 bit
      signal p2 : full_reg; -- 16x16 bit
-     signal p3 : unsigned(0 to 2 * (rest_base + 1) - 1); -- 18x18 bit
+     signal p3 : unsigned(0 to 2 * (rest_base + 1) - 1); -- 17x17 bit
 
      signal p2_upper : half_reg;
      signal p2_lower : half_reg;
@@ -80,7 +80,6 @@ architecture Behavioral of karazuba_mult_dsp_level is
      signal p2_buf: full_reg;
      signal p1_reconstructed: full_rest_reg;
      signal p1_reconstructed_temp: unsigned(0 to p1_reconstructed'length+1 -1);
-     signal p1_scaled: unsigned(0 to p1'length+half_base-1);
      signal p1_plus_p2 : unsigned(0 to (p1'length + 1) - 1); -- +2 for carry
 
      -- wait registers for the multiplication result which are pushed back into the DSPs
@@ -99,7 +98,6 @@ architecture Behavioral of karazuba_mult_dsp_level is
 
      signal a1_plus_a0_buf : unsigned(0 to a1_plus_a0'length - 1);
      signal a1_plus_a0_buf2 : unsigned(0 to a1_plus_a0'length - 1);
-     -- signal b1_plus_b0_buf : unsigned(0 to a1_plus_a0'length - 1);
 
 begin
      -- MSB is at index 0
@@ -108,7 +106,6 @@ begin
      b1 <= i_num1(0 to rest_base - 1);
      a0 <= i_num0(rest_base to i_num0'length - 1);
      b0 <= i_num1(rest_base to i_num1'length - 1);
-     p1_scaled <= unsigned(std_ulogic_vector(p1_reconstructed) & std_ulogic_vector(to_unsigned(0, half_base)));
      p1_reconstructed <= p1_reconstructed_temp(1 to p1_reconstructed_temp'length-1);
 
      p1 <= p1_wait_regs(p1_wait_regs'length - 1);
@@ -156,7 +153,7 @@ begin
 
                -- stage 5
                p2_lower_buf <= p2_lower;
-               p123 <= p1_scaled + p3_minus_p1plusp2 + p2_upper;
+               p123 <= unsigned(std_ulogic_vector(p1_reconstructed) & std_ulogic_vector(p2_upper)) + p3_minus_p1plusp2;
 
                p1_wait_regs(1 to p1_wait_regs'length - 1) <= p1_wait_regs(0 to p1_wait_regs'length - 2);
                p2_wait_regs(1 to p2_wait_regs'length - 1) <= p2_wait_regs(0 to p2_wait_regs'length - 2);

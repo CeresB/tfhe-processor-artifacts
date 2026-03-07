@@ -35,7 +35,7 @@ entity pbs_lwe_n_storage_write is
      port (
           i_clk                : in  std_ulogic;
           i_pbs_result         : in  sub_polynom(0 to pbs_throughput - 1);
-          i_sample_extract_idx : in  idx_int;
+          -- i_sample_extract_idx : in  idx_int;
           i_ram_coeff_idx      : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
           i_reset              : in  std_ulogic;
 
@@ -128,9 +128,9 @@ begin
                          else
                               -- catch b-value with extract-idx
                               -- pbs_throughput is a power of 2 --> first log2_throughput-bits are coefficient idx, the others are block idx
-                              if (pbs_res_block_cnt = i_sample_extract_idx(0 to i_sample_extract_idx'length - log2_pbs_throughput - 1)) then
+                              if (pbs_res_block_cnt = sample_extract_idx(0 to sample_extract_idx'length - log2_pbs_throughput - 1)) then
                                    -- we can write the b-value anywhere in its block but for later convinience we write it at the last position.
-                                   pbs_res_reordered(pbs_res_reordered'length - 1) <= i_pbs_result(to_integer(i_sample_extract_idx(i_sample_extract_idx'length - log2_pbs_throughput - 1 to i_sample_extract_idx'length - 1)));
+                                   pbs_res_reordered(pbs_res_reordered'length - 1) <= i_pbs_result(to_integer(sample_extract_idx(sample_extract_idx'length - log2_pbs_throughput - 1 to sample_extract_idx'length - 1)));
                                    -- ignore the other values in that block
                                    if pbs_res_cnt < to_unsigned(write_blocks_in_lwe_n_ram - 1, pbs_res_cnt'length) then
                                         pbs_res_cnt <= pbs_res_cnt + to_unsigned(1, pbs_res_cnt'length);

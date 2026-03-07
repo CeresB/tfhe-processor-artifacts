@@ -1402,7 +1402,6 @@ begin
       i_lut_hbm_out       => intermediate_hbm_read_out_pkgs_stack_1(channel_lut_idx),
       i_b_hbm_out         => intermediate_hbm_read_out_pkgs_stack_1(channel_b_idx),
       o_out_valid         => lwe_n_buf_out_valid,
-      o_return_address    => open,
       o_out_data          => lwe_n_buf_out,
       o_next_module_reset => lwe_n_buf_write_next_reset,
       o_ai_hbm_in         => ai_hbm_in,

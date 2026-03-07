@@ -33,7 +33,7 @@ entity tfhe_pbs_accelerator is
     i_clk               : in  std_ulogic;
     i_reset_n           : in  std_ulogic;
     i_ram_coeff_idx     : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
-    o_return_address    : out hbm_ps_port_memory_address;
+    -- o_return_address    : out hbm_ps_port_memory_address;
     o_out_valid         : out std_ulogic;
     o_out_data          : out sub_polynom(0 to pbs_throughput - 1);
     o_next_module_reset : out std_ulogic;
@@ -77,9 +77,9 @@ architecture Behavioral of tfhe_pbs_accelerator is
       o_b_addr               : out hbm_ps_port_memory_address;
       o_a_addr               : out hbm_ps_port_memory_address;
       o_a_addr_valid         : out std_ulogic;
-      o_return_address       : out hbm_ps_port_memory_address;
+      -- o_return_address       : out hbm_ps_port_memory_address;
       -- o_return_address_valid          : out std_ulogic;
-      o_sample_extract_idx   : out idx_int;
+      -- o_sample_extract_idx   : out idx_int;
       o_new_batch            : out std_ulogic;
       o_hbm_read_in          : out hbm_ps_in_read_pkg
     );
@@ -102,8 +102,8 @@ architecture Behavioral of tfhe_pbs_accelerator is
       i_lwe_b              : in  rotate_idx;
       i_lwe_ai             : in  rotate_idx;
       i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
-      i_sample_extract_idx : in  idx_int;
-      o_sample_extract_idx : out idx_int;
+      -- i_sample_extract_idx : in  idx_int;
+      -- o_sample_extract_idx : out idx_int;
       o_result             : out sub_polynom(0 to throughput - 1);
       o_next_module_reset  : out std_ulogic
     );
@@ -153,7 +153,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
     port (
       i_clk                : in  std_ulogic;
       i_pbs_result         : in  sub_polynom(0 to pbs_throughput - 1);
-      i_sample_extract_idx : in  idx_int;
+      -- i_sample_extract_idx : in  idx_int;
       i_ram_coeff_idx      : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
       i_reset              : in  std_ulogic;
 
@@ -165,7 +165,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
 
   -- op buffer signals
   signal current_lut_start_addr       : hbm_ps_port_memory_address;
-  signal current_sample_extract_idx   : idx_int;
+  -- signal current_sample_extract_idx   : idx_int;
   signal new_pbs_batch                : std_ulogic;
 
   -- pbs signals
@@ -178,7 +178,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
   signal pbs_result                   : sub_polynom(0 to pbs_throughput - 1);
   signal ai                           : rotate_idx;
   signal pbs_lut_part                 : sub_polynom(0 to pbs_throughput - 1);
-  signal pbs_b_extract_idx            : idx_int;
+  -- signal pbs_b_extract_idx            : idx_int;
 
   -- pingpong buffer ready signals
   signal lut_storage_ready  : std_ulogic;
@@ -226,8 +226,8 @@ begin
       o_b_addr               => b_addr,
       o_a_addr               => a_addr,
       o_a_addr_valid         => a_addr_valid,
-      o_return_address       => o_return_address,
-      o_sample_extract_idx   => current_sample_extract_idx,
+      -- o_return_address       => o_return_address,
+      -- o_sample_extract_idx   => current_sample_extract_idx,
       o_new_batch            => new_pbs_batch
     );
 
@@ -300,8 +300,8 @@ begin
       i_lwe_b              => pbs_lwe_b,
       i_lwe_ai             => ai,
       i_BSK_i_part         => bsk_i_part,
-      i_sample_extract_idx => current_sample_extract_idx,
-      o_sample_extract_idx => pbs_b_extract_idx,
+      -- i_sample_extract_idx => current_sample_extract_idx,
+      -- o_sample_extract_idx => pbs_b_extract_idx,
       o_result             => pbs_result,
       o_next_module_reset  => pbs_output_not_ready
     );
@@ -310,7 +310,7 @@ begin
     port map (
       i_clk                => i_clk,
       i_pbs_result         => pbs_result,
-      i_sample_extract_idx => pbs_b_extract_idx,
+      -- i_sample_extract_idx => pbs_b_extract_idx,
       i_ram_coeff_idx      => i_ram_coeff_idx,
       i_reset              => pbs_output_not_ready,
       o_coeffs             => o_out_data,

@@ -22,8 +22,19 @@
 library IEEE;
   use IEEE.STD_LOGIC_1164.all;
   use IEEE.numeric_std.all;
+  use IEEE.math_real.all;
 
 package constants_utils is
+
+  function get_max(
+      num0 : in integer;
+      num1 : in integer
+  ) return integer;
+
+  function get_min(
+      num0 : in integer;
+      num1 : in integer
+  ) return integer;
 
   constant debug_mode                  : boolean := false; -- set to true for default modulo solution and the simpler parameter set
   constant dead_simulation             : boolean := false; -- if you only want to evaluate constants from the constants files set this to true. It skips twiddle-computations and other things that take long
@@ -105,10 +116,9 @@ package constants_utils is
   constant pingpong_ram_retiming_latency : integer := minimum_ram_retiming_latency + 1 * boolean'pos(cascaded_pingpongbram);           -- - 1 * boolean'pos(not double_polym_uses_bram); -- for rotate & ntt-out-buffer
   constant buffer_answer_delay           : integer := pingpong_ram_retiming_latency + 1 + (counter_buffer_len - 1);                    -- +1 for index calculations
   constant rotate_polym_reset_clks_ahead : integer := 3 + (counter_buffer_len - 1) + 1 * boolean'pos(rotate_polym_ram_idx_out_buffer); -- 3 clks after reset drops rotate module has computed the first valid coeff-indices to request
-  constant rotate_reorder_stages         : integer := 2;                                                                               --log2_ntt_throughput-1;-- something between 0 and log2_ntt_throughput-1
+  constant rotate_reorder_stages         : integer := get_min(2,log2_ntt_throughput-1);                                                                               --log2_ntt_throughput-1;-- something between 0 and log2_ntt_throughput-1
   constant rotate_polym_reorder_delay    : integer := 3 + 2 * (rotate_reorder_stages - 1 * boolean'pos(log2_ntt_throughput - 1 = rotate_reorder_stages)) + 1 * boolean'pos(rotate_polym_ram_idx_out_buffer);
   constant rolling_rotate_by_buffer      : boolean := false;
-  constant rolling_polym_part_rolled_buffer   : boolean := false;              -- leads to worse congestion
   constant rotate_cnt_buf_len                 : integer := counter_buffer_len; -- inactive, is ignored. must be bigger than 0, completely independent counter - all other values allowed
 
   -- values that are inferred - DO NOT CHANGE ANYTHING BELOW THIS LINE
@@ -136,6 +146,26 @@ package constants_utils is
 end package;
 
 package body constants_utils is
+
+  function get_max(
+            num0 : in integer;
+            num1 : in integer
+      ) return integer is
+      variable bigger_value : integer;
+  begin
+      bigger_value := integer(realmax(real(num0), real(num1)));
+      return bigger_value;
+  end function;
+
+  function get_min(
+            num0 : in integer;
+            num1 : in integer
+      ) return integer is
+      variable smaller_value : integer;
+  begin
+      smaller_value := integer(realmin(real(num0), real(num1)));
+      return smaller_value;
+  end function;
 
   function init_clks_per_ab_mod_p
     return integer is

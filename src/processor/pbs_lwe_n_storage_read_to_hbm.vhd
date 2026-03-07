@@ -52,7 +52,7 @@ architecture Behavioral of pbs_lwe_n_storage_read_to_hbm is
   signal out_piece_cnt : unsigned(0 to get_bit_length(pbs_throughput - 1) - 1);
   signal out_pkg_full  : std_ulogic;
 
-  signal hbm_write_address : hbm_ps_port_memory_address;
+  signal hbm_write_address : unsigned(0 to hbm_ps_port_addr_width-1);
   constant max_hbm_write_addr_offset : integer := write_blocks_in_lwe_n_ram - 1;
 
   -- signal done_reg : std_ulogic;
@@ -91,7 +91,7 @@ begin
   pbs_result_to_ram: process (i_clk) is
   begin
     if rising_edge(i_clk) then
-      hbm_write_in_buf.awaddr <= hbm_write_address;
+      hbm_write_in_buf.awaddr <= hbm_write_address + res_base_addr;
 
       if i_reset = '1' then
         out_cnt_pbs_throughput <= to_unsigned(0, out_cnt_pbs_throughput'length);
@@ -99,7 +99,7 @@ begin
         out_write_blocks_offset <= to_unsigned(0, out_write_blocks_offset'length);
         out_piece_cnt <= to_unsigned(0, out_piece_cnt'length);
         out_pkg_full <= '0';
-        hbm_write_address <= res_base_addr;
+        hbm_write_address <= to_unsigned(0,hbm_write_address'length);
         hbm_write_in_buf.awvalid <= '0';
         hbm_write_in_buf.wvalid <= '0';
         hbm_write_in_buf.wlast <= '0';
@@ -153,12 +153,11 @@ begin
             out_piece_cnt <= out_piece_cnt + to_unsigned(hbm_coeffs_per_clock_per_ps_port, out_piece_cnt'length);
           else
             out_piece_cnt <= to_unsigned(0, out_piece_cnt'length);
-            if hbm_write_address < res_base_addr+to_unsigned(max_hbm_write_addr_offset, hbm_write_address'length) then
-              hbm_write_address <= hbm_write_address + to_unsigned(1, hbm_write_address'length);
+            hbm_write_address <= hbm_write_address + to_unsigned(hbm_bytes_per_ps_port, hbm_write_address'length);
+            if hbm_write_address < to_unsigned(max_hbm_write_addr_offset, hbm_write_address'length) then
               hbm_write_in_buf.wlast <= '0';
               wlast_int <= '0';
             else
-              hbm_write_address <= res_base_addr;
               hbm_write_in_buf.wlast <= '1';
               wlast_int <= '1';
             end if;

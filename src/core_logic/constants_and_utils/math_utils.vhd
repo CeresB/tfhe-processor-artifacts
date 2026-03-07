@@ -20,28 +20,18 @@
 library IEEE;
      use IEEE.STD_LOGIC_1164.all;
      use IEEE.numeric_std.all;
-     use IEEE.math_real.all;
 library work;
      use work.datatypes_utils.all;
+     use IEEE.math_real.all;
 
 package math_utils is
-
-     function get_bit_length(
-          num : in synthesiseable_uint
-     ) return integer;
 
      function get_bit_length(
           num : in integer
      ) return integer;
 
-     function get_max(
-          num0 : in integer;
-          num1 : in integer
-     ) return integer;
-
-     function get_min(
-          num0 : in integer;
-          num1 : in integer
+     function get_bit_length(
+          num : in synthesiseable_uint
      ) return integer;
 
      function reverse_vector(a : in std_ulogic_vector)
@@ -68,6 +58,15 @@ package math_utils is
 end package;
 
 package body math_utils is
+
+     function get_bit_length(
+               num : in integer
+          ) return integer is
+          variable bit_length : integer := 0;
+     begin
+          bit_length := integer(ceil(log2(real(num + 1)))); -- +1 because otherwise if num=1 then bit_length=0
+          return bit_length;
+     end function;
 
      function reverse_idx(
                num     : integer;
@@ -96,35 +95,6 @@ package body math_utils is
                end if;
           end loop;
           return bit_length;
-     end function;
-
-     function get_bit_length(
-               num : in integer
-          ) return integer is
-          variable bit_length : integer := 0;
-     begin
-          bit_length := integer(ceil(log2(real(num + 1)))); -- +1 because otherwise if num=1 then bit_length=0
-          return bit_length;
-     end function;
-
-     function get_max(
-               num0 : in integer;
-               num1 : in integer
-          ) return integer is
-          variable bigger_value : integer;
-     begin
-          bigger_value := integer(realmax(real(num0), real(num1)));
-          return bigger_value;
-     end function;
-
-     function get_min(
-               num0 : in integer;
-               num1 : in integer
-          ) return integer is
-          variable smaller_value : integer;
-     begin
-          smaller_value := integer(realmin(real(num0), real(num1)));
-          return smaller_value;
      end function;
 
      function reverse_vector(a : in std_ulogic_vector)

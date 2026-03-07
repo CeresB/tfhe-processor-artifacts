@@ -48,8 +48,8 @@ entity pbs is
           i_lwe_b              : in  rotate_idx;
           i_lwe_ai             : in  rotate_idx;
           i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
-          i_sample_extract_idx : in  idx_int;
-          o_sample_extract_idx : out idx_int;
+          -- i_sample_extract_idx : in  idx_int;
+          -- o_sample_extract_idx : out idx_int;
           o_result             : out sub_polynom(0 to throughput - 1);
           o_next_module_reset  : out std_ulogic
      );
@@ -105,10 +105,10 @@ architecture Behavioral of pbs is
      signal sample_extract_reset   : std_ulogic;
      signal sample_extract_reset_buf   : std_ulogic;
 
-     signal samp_extract_idx : rotate_idx;
-     signal samp_extract_idx_buf : rotate_idx;
+     -- signal samp_extract_idx : rotate_idx;
+     -- signal samp_extract_idx_buf : rotate_idx;
 
-     signal b_extract_idx_bufferchain : idx_int_array(0 to rotate_polym_first_block_initial_delay - output_writing_latency - 1);
+     -- signal b_extract_idx_bufferchain : idx_int_array(0 to rotate_polym_first_block_initial_delay - output_writing_latency - 1);
 
 begin
 
@@ -169,14 +169,14 @@ begin
           if rising_edge(i_clk) then
                sample_extract_reset_buf <= sample_extract_reset;
                blind_rotate_output_buf <= blind_rotate_output;
-               samp_extract_idx_buf <= samp_extract_idx;
+               -- samp_extract_idx_buf <= samp_extract_idx;
           end if;
           end process;
      end generate;
      no_samp_extract_input_buf: if not buffer_samp_extract_input generate
           sample_extract_reset_buf <= sample_extract_reset;
           blind_rotate_output_buf <= blind_rotate_output;
-          samp_extract_idx_buf <= samp_extract_idx;
+          -- samp_extract_idx_buf <= samp_extract_idx;
      end generate;
 
      -- one way to do the sample extract is to read the .a-part coefficients in reverse
@@ -196,21 +196,21 @@ begin
                i_clk               => i_clk,
                i_reset             => sample_extract_reset_buf,
                i_sub_polym         => blind_rotate_output_buf,
-               i_rotate_by         => samp_extract_idx_buf,
+               i_rotate_by         => sample_extract_idx,
                o_result            => o_result,
                o_next_module_reset => o_next_module_reset
           );
 
-     process (i_clk)
-     begin
-          if rising_edge(i_clk) then
-               -- required for lwe_n_buffer
-               b_extract_idx_bufferchain <= i_sample_extract_idx & b_extract_idx_bufferchain(0 to b_extract_idx_bufferchain'length - 2);
-          end if;
-     end process;
-     o_sample_extract_idx <= b_extract_idx_bufferchain(b_extract_idx_bufferchain'length - 1);
+     -- process (i_clk)
+     -- begin
+     --      if rising_edge(i_clk) then
+     --           -- required for lwe_n_buffer
+     --           b_extract_idx_bufferchain <= i_sample_extract_idx & b_extract_idx_bufferchain(0 to b_extract_idx_bufferchain'length - 2);
+     --      end if;
+     -- end process;
+     -- o_sample_extract_idx <= b_extract_idx_bufferchain(b_extract_idx_bufferchain'length - 1);
 
-     samp_extract_idx(samp_extract_idx'length - i_sample_extract_idx'length to samp_extract_idx'length - 1) <= i_sample_extract_idx;
-     samp_extract_idx(0 to samp_extract_idx'length - i_sample_extract_idx'length - 1)                       <= (others => '0');
+     -- samp_extract_idx(samp_extract_idx'length - i_sample_extract_idx'length to samp_extract_idx'length - 1) <= i_sample_extract_idx;
+     -- samp_extract_idx(0 to samp_extract_idx'length - i_sample_extract_idx'length - 1)                       <= (others => '0');
 
 end architecture;

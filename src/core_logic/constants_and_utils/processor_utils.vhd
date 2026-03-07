@@ -87,9 +87,9 @@ package processor_utils is
      type pbs_operation is record
           -- do not change the order of these elements without changing the op-decode part
           lwe_addr_in        : hbm_ps_port_memory_address;
-          lwe_addr_out       : hbm_ps_port_memory_address;
+          -- lwe_addr_out       : hbm_ps_port_memory_address;
           lut_start_addr     : hbm_ps_port_memory_address;
-          sample_extract_idx : idx_int;
+          -- sample_extract_idx : idx_int;
           -- in the future: maybe choice of different bootstrapping keys through providing address
      end record;
 

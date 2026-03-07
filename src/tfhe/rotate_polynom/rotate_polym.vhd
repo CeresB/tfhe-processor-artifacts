@@ -52,19 +52,6 @@ end entity;
 
 architecture Behavioral of rotate_polym is
 
-     component add_reduce is
-          generic (
-               substraction : boolean;
-               modulus      : synthesiseable_uint
-          );
-          port (
-               i_clk    : in  std_ulogic;
-               i_num0   : in  synthesiseable_uint;
-               i_num1   : in  synthesiseable_uint;
-               o_result : out synthesiseable_uint
-          );
-     end component;
-
      component one_time_counter is
           generic (
                tripping_value     : integer;
@@ -91,8 +78,6 @@ architecture Behavioral of rotate_polym is
           );
      end component;
 
-     type wait_registers_sub_polym is array (natural range <>) of sub_polynom(0 to o_result'length - 1);
-
      signal ai_roll_factor     : idx_int;
      signal ai_roll_factor_msb : std_ulogic;
      signal ai_sign_part       : std_ulogic;
@@ -106,19 +91,14 @@ architecture Behavioral of rotate_polym is
      signal index_original_value        : idx_int_array(0 to o_result'length - 1); -- does modulo automatically
      signal index_original_value_buffer : idx_int_array(0 to o_result'length - 1);
 
-     constant polym_part_rolled_wait_reg_chain_len : integer := clks_per_64_bit_add_mod;
-     signal polym_part_rolled_wait_reg_chain       : wait_registers_sub_polym(0 to polym_part_rolled_wait_reg_chain_len - 1 - 1); -- -1 because of polym_part_rolled_wait_reg_chain_end
-     signal polym_part_rolled_wait_reg_chain_end   : sub_polynom(0 to o_result'length - 1);
      signal polym_part_rolled                      : sub_polynom(0 to o_result'length - 1);
-     signal polym_part_rolled_sign_flipped_reduced : sub_polynom(0 to o_result'length - 1);
 
      signal roll_info : std_ulogic_vector(0 to o_result'length - 1);
-     type bools_wait_reg is array (natural range <>) of std_ulogic_vector(0 to polym_part_rolled_wait_reg_chain_len + buffer_answer_delay + rotate_polym_reorder_delay - 1);
+     type bools_wait_reg is array (natural range <>) of std_ulogic_vector(0 to buffer_answer_delay + rotate_polym_reorder_delay - 1);
      signal roll_info_wait_regs : bools_wait_reg(0 to o_result'length - 1);
 
      signal switch_sign_wait_regs : std_ulogic_vector(0 to (roll_info_wait_regs(0)'length + 2) - 1); -- +2 because of the stages until a request to the outside buffer is made
 
-     constant zero_val : synthesiseable_uint := to_synth_uint(0);
      constant compare_val               : std_ulogic_vector(0 to 0)        := std_ulogic_vector(to_unsigned(boolean'pos(not negated), 1));
 
      constant coeffs_per_ram_block            : integer := num_coefficients / throughput;
@@ -143,11 +123,21 @@ architecture Behavioral of rotate_polym is
      signal in_block1: sub_polynom(0 to throughput/2 - 1);
      signal in_block0_shifted: sub_polynom(0 to throughput/2 - 1);
      signal in_block1_shifted: sub_polynom(0 to throughput/2 - 1);
-
-     constant rolling_polym_part_rolled_buffer : boolean := false;
-     signal polym_part_rolled_wait_regs_cnt : unsigned(0 to get_bit_length(polym_part_rolled_wait_reg_chain'length - 1) - 1) := to_unsigned(0, get_bit_length(polym_part_rolled_wait_reg_chain'length - 1));
+     signal res_buf: sub_polynom(0 to o_result'length - 1);
 
 begin
+
+     out_buf: if rotate_polym_out_buffer generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               o_result <= res_buf;
+          end if;
+          end process;
+     end generate;
+     no_out_buf: if not rotate_polym_out_buffer generate
+          o_result <= res_buf;
+     end generate;
 
      in_block0 <= i_sub_coeffs(0 to throughput/2-1);
      in_block1 <= i_sub_coeffs(throughput/2 to throughput-1);
@@ -164,52 +154,12 @@ begin
                o_tripped => o_next_module_reset
           );
 
-     sign_flip_polym_part: for i in 0 to polym_part_rolled'length - 1 generate
-          big_sub_module: add_reduce
-               generic map (
-                    substraction => true,
-                    modulus      => tfhe_modulus
-               )
-               port map (
-                    i_clk    => i_clk,
-                    i_num0   => zero_val,
-                    i_num1   => polym_part_rolled(i),
-                    o_result => polym_part_rolled_sign_flipped_reduced(i)
-               );
-     end generate;
-
      -- MSB is at idx 0. We want log2_num_coefficients+1 LSBs as everything above is moduloed away anyway.
      -- assuming that i_ai is not negative (which should be the case since our modulo reductions always return positive values)
      -- the upper bit of i_rotate_by decides how we do the sign switch, we only care if its an even or odd number
      -- and the lower bits contain the number that we are actually rotating the polynom by
      ai_roll_factor <= i_rotate_by(1 to i_rotate_by'length - 1);
      ai_sign_part   <= i_rotate_by(0);
-
-     rolling_buffer_polym_part_rolled: if rolling_polym_part_rolled_buffer generate
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    polym_part_rolled_wait_reg_chain(0) <= polym_part_rolled;
-                    polym_part_rolled_wait_reg_chain(1 to polym_part_rolled_wait_reg_chain'length - 1) <= polym_part_rolled_wait_reg_chain(0 to polym_part_rolled_wait_reg_chain'length - 2);
-                    polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(polym_part_rolled_wait_reg_chain'length - 1);
-               end if;
-          end process;
-     end generate;
-
-     non_rolling_buffer_polym_part_rolled: if not rolling_polym_part_rolled_buffer generate
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    if polym_part_rolled_wait_regs_cnt < to_unsigned(polym_part_rolled_wait_reg_chain'length - 1, polym_part_rolled_wait_regs_cnt'length) then
-                         polym_part_rolled_wait_regs_cnt <= polym_part_rolled_wait_regs_cnt + to_unsigned(1, polym_part_rolled_wait_regs_cnt'length);
-                    else
-                         polym_part_rolled_wait_regs_cnt <= to_unsigned(0, polym_part_rolled_wait_regs_cnt'length);
-                    end if;
-                    polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt)) <= polym_part_rolled;
-                    polym_part_rolled_wait_reg_chain_end <= polym_part_rolled_wait_reg_chain(to_integer(polym_part_rolled_wait_regs_cnt));
-               end if;
-          end process;
-     end generate;
 
      shift_regs: for i in 0 to roll_info_wait_regs'length - 1 generate
           -- vivado should infer this as shift registers
@@ -406,26 +356,22 @@ begin
 
                -- i_sub_coeffs arrive a bit later due to pingpong_ram_retiming_latency!
                -- delay inner_block_offset and across_block_offset
-               across_block_offset_buf(0) <= across_block_offset;
-               inner_block_offset_buf(0) <= inner_block_offset;
-               across_block_offset_buf(1 to across_block_offset_buf'length - 1) <= across_block_offset_buf(0 to across_block_offset_buf'length - 2);
-               inner_block_offset_buf(1 to inner_block_offset_buf'length - 1) <= inner_block_offset_buf(0 to inner_block_offset_buf'length - 2);
-               
-               -- stage 2 to x: computation of polym_part_rolled_sign_flipped_reduced
+               across_block_offset_buf <= across_block_offset & across_block_offset_buf(0 to across_block_offset_buf'length - 2);
+               inner_block_offset_buf <= inner_block_offset & inner_block_offset_buf(0 to inner_block_offset_buf'length - 2);
+
                -- roll_info is computed
                -- stage x+1
-               for i in 0 to o_result'length - 1 loop
+               for i in 0 to res_buf'length - 1 loop
                     if (switch_sign_wait_regs(switch_sign_wait_regs'length - 1) = '1') xor (roll_info_wait_regs(i)(roll_info_wait_regs(0)'length - 1) = compare_val(0)) then
-                         -- coefficient sign changed
-                         o_result(i) <= polym_part_rolled_sign_flipped_reduced(i);
+                         -- coefficient sign must change
+                         res_buf(i) <= tfhe_modulus - polym_part_rolled(i); -- sign flipped
                     else
-                         -- coefficient is unchanged
-                         o_result(i) <= polym_part_rolled_wait_reg_chain_end(i);
+                         -- coefficient can remain as-is
+                         res_buf(i) <= polym_part_rolled(i);
                     end if;
                end loop;
           end if;
      end process;
-
 
      process (i_clk)
      begin

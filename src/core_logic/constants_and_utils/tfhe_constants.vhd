@@ -38,6 +38,7 @@ package tfhe_constants is
   constant ntt_out_buf_ram_retiming_latency : integer := pingpong_ram_retiming_latency + 1;
   constant bski_buffer_output_buffer        : integer := default_ram_retiming_latency;
 
+  constant rotate_polym_out_buffer   : boolean := false; -- did not improve timing
   constant lwe_n_buf_out_buffer      : boolean := false;
   constant use_intt_input_buffer     : boolean := false; -- experimental, localizes congestion?
   constant use_end_step_input_buffer : boolean := true; -- experimental
@@ -47,15 +48,15 @@ package tfhe_constants is
   constant buffer_init_output          : boolean := true;  -- good against congestion
   constant buffer_blind_rot_output     : boolean := false; -- not good for congestion
 
-  constant extra_latency_buf_extra_output_buffer : boolean := false; -- experimental, apparently leads to worse timing if set to true
+  constant extra_latency_buf_extra_output_buffer : boolean := true; -- experimental, apparently leads to worse timing if set to true
   constant use_elem_mult_res_output_buffer       : boolean := false; -- experimental, apparently leads to much worse timing if set to true
   constant use_hbm_output_buffer                 : boolean := false; -- leads to worse timing, around HBM just too much congestion
 
   constant lut_buf_ram_retiming_latency : integer := default_ram_retiming_latency; -- * boolean'pos((pbs_batchsize * num_polyms_per_rlwe_ciphertext * num_coefficients / pbs_throughput) > (2 ** log2_coeffs_per_bram));
 
   constant ai_buffer_output_buffer : integer := default_ram_retiming_latency + 1; -- must be bigger than 0
-  constant b_buffer_output_buffer  : integer := 2;                                -- must be bigger than 0
-  constant op_buffer_output_buffer : integer := 2;                                -- must be bigger than 0
+  constant b_buffer_output_buffer  : integer := 2;                                -- must be bigger than 1
+  constant op_buffer_output_buffer : integer := 2;                                -- must be bigger than 1
 
   constant x_ai_minus_1_sub_buf_output_buffer : boolean := false; -- experimental, apparently worse for congestion
   constant buffer_blind_rot_input             : boolean := false; -- experimental, apparently worse for congestion
@@ -63,7 +64,7 @@ package tfhe_constants is
   constant use_decomp_res_temp_buffer         : boolean := false; -- leads to worse congestion
   constant use_intt_res_output_buffer         : boolean := false; -- experimental, apparently leads to worse timing if set to true
 
-  constant ntt_out_buf_reset_buf_len : integer := 2; --2*log2_ntt_throughput; -- must be bigger than 0
+  constant ntt_out_buf_reset_buf_len : integer := 3; --2*log2_ntt_throughput; -- must be bigger than 0
 
   constant x_ai_minus_1_sub_buf_ram_retiming_latency : integer := minimum_ram_retiming_latency + 1 * boolean'pos(x_ai_minus_1_sub_buf_output_buffer);
 
@@ -80,6 +81,8 @@ package tfhe_constants is
   constant k_lwe        : integer             := integer(ceil(real(boolean'pos(not debug_mode) * 500 + 2 * boolean'pos(debug_mode)) / real(ai_hbm_coeffs_per_clk))) * ai_hbm_coeffs_per_clk; -- must be a multiple of ai_hbm_coeffs_per_clk
   constant k            : integer             := 1;                                                                                                                                          -- k_rlwe. use a power of 2 for decomp_length and k for best performance of our adder trees
   constant tfhe_modulus : synthesiseable_uint := ntt_prime;                                                                                                                                  -- you cannot easily seperate ntt and tfhe modulus since the whole architecture is build with it in mind
+  constant ai_pkgs_per_lwe: integer := k_lwe/ai_hbm_coeffs_per_clk;
+  constant sample_extract_idx: rotate_idx := to_rotate_idx(1);
 
   constant ksk_throughput    : integer := 2; -- blocksize processed by keyswitch module. After k*N+1 interations the keyswitch module returns a block of this size as the partial keyswitch result
   constant decomp_length_ksk : integer := 2;
@@ -126,7 +129,7 @@ package tfhe_constants is
   constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + easy_reduction_latency + 1 * boolean'pos(use_decomp_res_output_buffer) + 1 * boolean'pos(use_decomp_res_temp_buffer);
 
   -- rotate polym
-  constant rotate_polym_first_block_initial_delay : integer := 1 + rotate_polym_reorder_delay + buffer_answer_delay + clks_per_64_bit_add_mod + rotate_polym_reset_clks_ahead; -- +1 because of stage 0
+  constant rotate_polym_first_block_initial_delay : integer := 1 + rotate_polym_reorder_delay + buffer_answer_delay + rotate_polym_reset_clks_ahead; -- +1 because of stage 0
   constant rotate_with_buffer_latency             : integer := rotate_polym_first_block_initial_delay + ntt_num_blocks_per_polym - rotate_polym_reset_clks_ahead;
 
   -- ACC*(X^a_i -1)+ACC_old

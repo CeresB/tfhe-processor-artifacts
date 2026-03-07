@@ -50,7 +50,7 @@ package ip_cores_constants is
      constant hbm_resp_bit_width      : integer                        := 2;
 
      constant ai_hbm_num_ps_ports   : integer := 1;
-     constant ai_burstlen           : integer := get_min(1 - 1, hbm_burstlen_bit_width); -- keep small, high burstlen can lead to significantly higher k_lwe and with that lower PBS/s score
+     constant ai_burstlen           : integer := get_min(1, hbm_burstlen_bit_width); -- keep small, high burstlen can lead to significantly higher k_lwe and with that lower PBS/s score
      constant ai_hbm_coeffs_per_clk : integer := ai_hbm_num_ps_ports * hbm_coeffs_per_clock_per_ps_port;
      constant ai_hbm_bytes_per_clk  : integer := ai_hbm_coeffs_per_clk * 8;
      constant bsk_burstlen          : integer := to_integer(hbm_burstlen_max);
