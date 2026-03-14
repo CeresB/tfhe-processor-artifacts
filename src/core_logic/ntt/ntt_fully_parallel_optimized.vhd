@@ -48,6 +48,7 @@ architecture Behavioral of ntt_fully_parallel_optimized is
 
      signal stage_inputs  : stages_samples;
      signal stage_outputs : stages_samples;
+     signal stage_outputs_buffer : stages_samples;
 
      component ntt_butterfly_optimized is
           generic (
@@ -67,17 +68,29 @@ architecture Behavioral of ntt_fully_parallel_optimized is
 
 begin
 
+     out_bufs: if fp_stage_substage_ouput_buffers generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               stage_outputs_buffer <= stage_outputs;
+          end if;
+          end process;
+     end generate;
+     no_out_bufs: if not fp_stage_substage_ouput_buffers generate
+          stage_outputs_buffer <= stage_outputs;
+     end generate;
+
      flow_chain: if not invers generate
-          stage_inputs <= i_polym & stage_outputs(0 to stage_outputs'length - 2);
+          stage_inputs <= i_polym & stage_outputs_buffer(0 to stage_outputs_buffer'length - 2);
           -- the output is the input of the next stage
-          o_result <= stage_outputs(stage_outputs'length - 1);
+          o_result <= stage_outputs_buffer(stage_outputs_buffer'length - 1);
      end generate;
 
      flow_chain_invers: if invers generate
           -- we reverse the stage order for the intt, so that we can reuse the twiddle-table and other logic from the normal ntt
           -- the output is the input of the next stage
-          stage_inputs <= stage_outputs(1 to stage_outputs'length - 1) & i_polym;
-          o_result <= stage_outputs(0);
+          stage_inputs <= stage_outputs_buffer(1 to stage_outputs_buffer'length - 1) & i_polym;
+          o_result <= stage_outputs_buffer(0);
      end generate;
 
      ntt_stages: for stage_idx in 0 to num_stages - 1 generate -- for each stage

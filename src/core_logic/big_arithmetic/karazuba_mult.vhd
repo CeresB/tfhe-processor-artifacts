@@ -72,9 +72,9 @@ architecture Behavioral of karazuba_mult is
      signal b1 : half_reg;
      signal p1       : full_reg; -- with the max values for a1 & b1 its 64 bits unsigned
      signal p2       : full_reg; -- with the max values for a0 & b0 its 64 bits unsigned
-     signal p2_upper : half_reg;
+     -- signal p2_upper : half_reg;
      signal p2_lower : half_reg;
-     signal p1_plus_p2_minus_p2upper : unsigned(0 to (p1'length + 2) - 1); -- +2 for carry
+     signal p1_plus_p2_minus_p2upper : unsigned(0 to (p1'length + 1) - 1); -- +1 for carry
 
      signal a1_plus_a0 : unsigned(0 to a1'length + 1 - 1);         -- +1 for carry
      signal b1_plus_b0 : unsigned(0 to b1'length + 1 - 1);         -- +1 for carry
@@ -122,7 +122,7 @@ begin
      b1 <= num1_buf(0 to base_len - 1);
      a0 <= num0_buf(base_len to num0_buf'length - 1);
      b0 <= num1_buf(base_len to num1_buf'length - 1);
-     p2_upper <= (p2(0 to base_len - 1));
+     -- p2_upper <= (p2(0 to base_len - 1));
      p2_lower <= (p2(base_len to 2 * base_len - 1));
      p123_temp_upper <= (p123_temp(0 to p123_temp_upper'length - 1));
      p123_temp_lower <= (p123_temp(p123_temp_upper'length to p123_temp'length - 1));
@@ -173,7 +173,7 @@ begin
                -- we rewrite (p3-(p1+p2))*2**(n/2)+p2 to (p3-(p1+p2))+p2_upper || p2_lower = p3-(p1+p2-p2_upper) || p2_lower
                -- p1 and p2 finish one tic earlier than p3
                -- use that time to calculate p1+p2-p2_upper
-               p1_plus_p2_minus_p2upper <= unsigned(std_ulogic_vector(to_unsigned(0, 2)) & std_ulogic_vector(p1)) + p2 - p2_upper; -- extend one operand for the carry bit
+               p1_plus_p2_minus_p2upper <= ('0' & p1) + p2 - p2(0 to base_len - 1); -- extend one operand for the carry bit
                p1_wait_reg_2 <= p1;
 
                -- stage x

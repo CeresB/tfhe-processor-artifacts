@@ -125,6 +125,7 @@ architecture Behavioral of ntt_tb is
      -- constant test_intt_rescaling_latency                 : integer := clks_per_ab_mod_p;
      -- constant test_sequential_stage_clks_till_first_butterfly_result                 : integer := sequential_stage_clks_till_first_butterfly_result;
      constant test_ntt_delay : integer := get_ntt_latency(ntt_params.log2_num_coeffs, log2_throughput, ntt_params.negacyclic, false, true, false); -- v4p ignore w-303
+     -- constant test_overflow_reduced_num: unsigned(0 to overflow_reduced_num'length-1) := overflow_reduced_num;
 
 begin
      clk <= not clk after TIME_DELTA when finished /= '1' else '0';

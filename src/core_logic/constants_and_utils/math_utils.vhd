@@ -88,7 +88,8 @@ package body math_utils is
           ) return integer is
           variable bit_length : integer := 0;
      begin
-          for i in synthesiseable_uint'length - 1 downto 0 loop
+          -- for i in synthesiseable_uint'length - 1 downto 0 loop
+          for i in 0 to synthesiseable_uint'length - 1 loop
                if num(i) = '1' then
                     bit_length := i;
                     exit;

@@ -47,6 +47,8 @@ package constants_utils is
   constant ram_style_bram        : string  := "block";
   constant ram_style_auto        : string  := "auto";
   constant log2coeffs_per_lutram : integer := 6;
+  constant use_partial_reduction: boolean := true;
+  constant use_p3_default_mult: boolean := false;
 
   -- values you may change
   constant log2_num_coefficients                : integer := 10;                                                                                                                --10
@@ -55,11 +57,13 @@ package constants_utils is
   constant use_karazuba                         : boolean := not debug_mode;                                                                                                    -- karazuba is only implemented for unsigned_polym_coefficient_bit_width=64. If false, default mult is used, which works for any bit width.
   constant karazuba_depth_2                     : boolean := true;                                                                                                              -- only valid if use_karazuba=true
   constant negacyclic                           : boolean := not debug_mode;                                                                                                    -- this parameter determines if you want get a negacyclic ntt or intt. Alternatively you can make a normal ntt negacyclic by using twisting.
-  constant unsigned_polym_coefficient_bit_width : integer := 64;                                                                                                                -- must be a power of 2 (not for the ntt but for tfhe)
+  constant unsigned_polym_coefficient_bit_width : integer := 64; -- if you change this, you need to adapt the multiplication and reduction modules to the new bit width                                                                                                                -- must be a power of 2 (not for the ntt but for tfhe)
 
   -- experimental values that may lead to a better sythesis result
+  constant fp_stage_substage_ouput_buffers                       : boolean := true; -- for less congestion and better timing
   constant rotate_polym_ram_idx_out_buffer                       : boolean := false;                                                                     -- inactive, leave to false
   constant use_mult_karazuba_in_buffer                           : boolean := false;
+  constant use_mult_karazuba_dsp_level_in_buffer                 : boolean := false;
   constant default_cascaded_bram                                 : boolean := log2_num_coefficients - log2_ntt_throughput > log2_coeffs_per_bram;
   constant ntt_cascaded_twiddle_bram                             : boolean := (log2_num_coefficients - 1) - log2_ntt_throughput > log2_coeffs_per_bram;  -- only half as many twiddles as coefficients
   constant polym_uses_bram                                       : boolean := (log2_num_coefficients - log2_ntt_throughput) > log2coeffs_per_lutram;     -- LUTRAM holds 64 coeffs, for more we assume bram
@@ -84,7 +88,7 @@ package constants_utils is
   -- The butterflys expect that mult-latency is bigger than add latency - which should naturally be the case
   constant default_32_bit_mult_latency           : integer := 6;                        -- below 6 you get DRC violations. Depending on DSP register-optimization you may also get DRC violations with 6 but very few
   constant dsp_mult_latency                      : integer := 4;                        -- including pre- and post-adders
-  constant karazuba_32_bit_mult_latency          : integer := dsp_mult_latency + 2; -- 1 after-dsp-adder stage, 2 before
+  constant karazuba_32_bit_mult_latency          : integer := dsp_mult_latency + 2 + 1*boolean'pos(use_mult_karazuba_dsp_level_in_buffer); -- 1 after-dsp-adder stage, 2 before
   constant mult_32_bit_latency                   : integer := boolean'pos(karazuba_depth_2) * (karazuba_32_bit_mult_latency) + boolean'pos(not karazuba_depth_2) * default_32_bit_mult_latency;
   constant karazuba_64_mult_latency              : integer := 3 + mult_32_bit_latency + 1 * boolean'pos(use_mult_karazuba_in_buffer);
   constant mult_64_default_retiming_registers    : integer := 2;                        --18; -- if not Karazuba: set to 2 for debugging, set to 10 for least ressource usage, set to 18 for happy DRC report. Has no effect if karazuba-mult is used.

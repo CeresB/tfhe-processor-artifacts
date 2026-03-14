@@ -66,8 +66,8 @@ architecture Behavioral of top is
                i_lwe_b              : in  rotate_idx;
                i_lwe_ai             : in  rotate_idx;
                i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
-               i_sample_extract_idx : in  idx_int;
-               o_sample_extract_idx : out idx_int;
+               -- i_sample_extract_idx : in  idx_int;
+               -- o_sample_extract_idx : out idx_int;
                o_result             : out sub_polynom(0 to throughput - 1);
                o_next_module_reset  : out std_ulogic
           );
@@ -200,8 +200,8 @@ begin
                i_lwe_b              => b_val,
                i_lwe_ai             => ai,
                i_BSK_i_part         => bsk_i_part,
-               i_sample_extract_idx => sample_extract_default_sample_extract_idx,
-               o_sample_extract_idx => open,
+               -- i_sample_extract_idx => sample_extract_default_sample_extract_idx,
+               -- o_sample_extract_idx => open,
                o_result             => pbs_result,
                o_next_module_reset  => open
           );

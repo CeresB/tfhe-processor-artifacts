@@ -116,7 +116,7 @@ begin
      reset_logic: for sub_stage_idx in 1 to fp_substage_resets'length - 1 generate
           reset_latency_counter: one_time_counter
                generic map (
-                    tripping_value     => clks_per_butterfly,
+                    tripping_value     => clks_per_butterfly+1*boolean'pos(fp_stage_substage_ouput_buffers),
                     out_negated        => true,
                     bufferchain_length => trailing_reset_buffer_len
                )

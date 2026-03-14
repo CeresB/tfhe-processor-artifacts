@@ -94,30 +94,32 @@ begin
                     );
           end generate;
           is_p3: if not(base_len < 33) generate
-          -- p3 is 33x33 which forces an unsigned 17x17 bit multiplication with karazuba, but our DSPs are 27x18 signed and cannot do that cleanly
-               -- karazuba_mult: karazuba_mult_dsp_level_p3
-               -- karazuba_mult: karazuba_mult_dsp_level
-               --      generic map (
-               --           base_len            => base_len,
-               --           dsp_retiming_length => dsp_retiming_length
-               --      )
-               --      port map (
-               --           i_clk  => i_clk,
-               --           i_num0 => i_num0,
-               --           i_num1 => i_num1,
-               --           o_res  => o_res
-               --      );
-               mult: default_mult
-                    generic map (
-                         base_len            => base_len,
-                         dsp_retiming_length => default_32_bit_mult_latency
-                    )
-                    port map (
-                         i_clk  => i_clk,
-                         i_num0 => i_num0,
-                         i_num1 => i_num1,
-                         o_res  => o_res
-                    );
+               p3_default_mult: if use_p3_default_mult generate
+                    mult: default_mult
+                         generic map (
+                              base_len            => base_len,
+                              dsp_retiming_length => default_32_bit_mult_latency
+                         )
+                         port map (
+                              i_clk  => i_clk,
+                              i_num0 => i_num0,
+                              i_num1 => i_num1,
+                              o_res  => o_res
+                         );
+               end generate;
+               p3_mult: if not use_p3_default_mult generate
+                    mult: karazuba_mult_dsp_level_p3
+                         generic map (
+                              base_len            => base_len,
+                              dsp_retiming_length => dsp_retiming_length
+                         )
+                         port map (
+                              i_clk  => i_clk,
+                              i_num0 => i_num0,
+                              i_num1 => i_num1,
+                              o_res  => o_res
+                         );
+               end generate;
           end generate;
      end generate;
 

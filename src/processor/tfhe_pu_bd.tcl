@@ -25,15 +25,8 @@ set current_vivado_version [version -short]
 
 if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
    puts ""
-   if { [string compare $scripts_vivado_version $current_vivado_version] > 0 } {
-      catch {common::send_gid_msg -ssname BD::TCL -id 2042 -severity "ERROR" " This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Sourcing the script failed since it was created with a future version of Vivado."}
+   common::send_gid_msg -ssname BD::TCL -id 2040 -severity "CRITICAL WARNING" "This script was generated using Vivado <$scripts_vivado_version> without IP versions in the create_bd_cell commands, but is now being run in <$current_vivado_version> of Vivado. There may have been changes to the IP between Vivado <$scripts_vivado_version> and <$current_vivado_version>, which could impact the functionality and configuration of the design."
 
-   } else {
-     catch {common::send_gid_msg -ssname BD::TCL -id 2041 -severity "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
-
-   }
-
-   return 1
 }
 
 ################################################################
@@ -137,11 +130,11 @@ set bCheckIPsPassed 1
 set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
-xilinx.com:ip:clk_wiz:6.0\
-xilinx.com:ip:xdma:4.2\
-xilinx.com:ip:smartconnect:1.0\
-xilinx.com:ip:xpm_cdc_gen:1.0\
-xilinx.com:ip:util_ds_buf:2.2\
+xilinx.com:ip:clk_wiz:*\
+xilinx.com:ip:smartconnect:*\
+xilinx.com:ip:xpm_cdc_gen:*\
+xilinx.com:ip:util_ds_buf:*\
+xilinx.com:ip:xdma:*\
 "
 
    set list_ips_missing ""
@@ -243,14 +236,14 @@ proc create_root_design { parentCell } {
   # Create ports
   set leds [ create_bd_port -dir O -from 7 -to 0 leds ]
   set hbm_ref_clk_0 [ create_bd_port -dir I -type clk -freq_hz 100000000 hbm_ref_clk_0 ]
-  set hbm_ref_clk_1 [ create_bd_port -dir I -type clk -freq_hz 100000000 hbm_ref_clk_1 ]
   set pcie_perstn [ create_bd_port -dir I -type rst pcie_perstn ]
   set_property -dict [ list \
    CONFIG.POLARITY {ACTIVE_LOW} \
  ] $pcie_perstn
+  set hbm_ref_clk_1 [ create_bd_port -dir I -type clk -freq_hz 100000000 hbm_ref_clk_1 ]
 
   # Create instance: clk_wiz_0, and set properties
-  set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0 ]
+  set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz clk_wiz_0 ]
   set_property -dict [list \
     CONFIG.AUTO_PRIMITIVE {PLL} \
     CONFIG.CLKIN2_JITTER_PS {149.99} \
@@ -260,7 +253,7 @@ proc create_root_design { parentCell } {
     CONFIG.CLKOUT2_DRIVES {Buffer} \
     CONFIG.CLKOUT2_JITTER {111.879} \
     CONFIG.CLKOUT2_PHASE_ERROR {105.461} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {300.000} \
+    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {100.000} \
     CONFIG.CLKOUT2_USED {false} \
     CONFIG.CLKOUT3_DRIVES {Buffer} \
     CONFIG.CLKOUT3_JITTER {144.719} \
@@ -274,8 +267,8 @@ proc create_root_design { parentCell } {
     CONFIG.CLK_IN1_BOARD_INTERFACE {default_100mhz_clk} \
     CONFIG.CLK_IN2_BOARD_INTERFACE {Custom} \
     CONFIG.CLK_OUT1_PORT {apb_clk} \
-    CONFIG.CLK_OUT2_PORT {main_clk} \
-    CONFIG.CLK_OUT3_PORT {tfhe_clk} \
+    CONFIG.CLK_OUT2_PORT {clk_out2} \
+    CONFIG.CLK_OUT3_PORT {clk_out3} \
     CONFIG.FEEDBACK_SOURCE {FDBK_AUTO} \
     CONFIG.MMCM_BANDWIDTH {OPTIMIZED} \
     CONFIG.MMCM_CLKFBOUT_MULT_F {8} \
@@ -308,65 +301,57 @@ proc create_root_design { parentCell } {
      return 1
    }
   
-  # Create instance: xdma_0, and set properties
-  set xdma_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.2 xdma_0 ]
-  set_property -dict [list \
-    CONFIG.PCIE_BOARD_INTERFACE {pci_express_x8} \
-    CONFIG.SYS_RST_N_BOARD_INTERFACE {pcie_perstn} \
-    CONFIG.axi_data_width {256_bit} \
-    CONFIG.axilite_master_en {true} \
-    CONFIG.axisten_freq {250} \
-    CONFIG.cfg_mgmt_if {false} \
-    CONFIG.mode_selection {Advanced} \
-    CONFIG.pf0_msi_enabled {false} \
-    CONFIG.pl_link_cap_max_link_speed {8.0_GT/s} \
-    CONFIG.xdma_axi_intf_mm {AXI_Memory_Mapped} \
-    CONFIG.xdma_rnum_chnl {4} \
-    CONFIG.xdma_wnum_chnl {4} \
-  ] $xdma_0
-
-
-  # Create instance: smartconnect_0, and set properties
-  set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
-  set_property CONFIG.NUM_MI {6} $smartconnect_0
-
-
   # Create instance: smartconnect_1, and set properties
-  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_1 ]
+  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smartconnect_1 ]
   set_property -dict [list \
-    CONFIG.NUM_MI {8} \
+    CONFIG.NUM_MI {13} \
     CONFIG.NUM_SI {1} \
   ] $smartconnect_1
 
 
   # Create instance: xpm_cdc_gen_0, and set properties
-  set xpm_cdc_gen_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen:1.0 xpm_cdc_gen_0 ]
+  set xpm_cdc_gen_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen xpm_cdc_gen_0 ]
 
   # Create instance: util_ds_buf_0, and set properties
-  set util_ds_buf_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0 ]
+  set util_ds_buf_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf util_ds_buf_0 ]
   set_property CONFIG.DIFF_CLK_IN_BOARD_INTERFACE {pcie_refclk} $util_ds_buf_0
+
+
+  # Create instance: xdma_1, and set properties
+  set xdma_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma xdma_1 ]
+  set_property -dict [list \
+    CONFIG.PCIE_BOARD_INTERFACE {pci_express_x8} \
+    CONFIG.SYS_RST_N_BOARD_INTERFACE {pcie_perstn} \
+    CONFIG.axilite_master_en {true} \
+    CONFIG.cfg_mgmt_if {false} \
+    CONFIG.mode_selection {Advanced} \
+    CONFIG.pcie_extended_tag {true} \
+    CONFIG.pf0_msi_enabled {false} \
+    CONFIG.pl_link_cap_max_link_speed {8.0_GT/s} \
+    CONFIG.xdma_rnum_chnl {1} \
+    CONFIG.xdma_wnum_chnl {1} \
+  ] $xdma_1
 
 
   # Create interface connections
   connect_bd_intf_net -intf_net default_100mhz_clk_1 [get_bd_intf_ports default_100mhz_clk] [get_bd_intf_pins clk_wiz_0/CLK_IN1_D]
   connect_bd_intf_net -intf_net pcie_refclk_1 [get_bd_intf_ports pcie_refclk] [get_bd_intf_pins util_ds_buf_0/CLK_IN_D]
-  connect_bd_intf_net -intf_net smartconnect_0_M00_AXI [get_bd_intf_pins smartconnect_0/M00_AXI] [get_bd_intf_pins smartconnect_1/S00_AXI]
-  connect_bd_intf_net -intf_net smartconnect_0_M01_AXI [get_bd_intf_pins smartconnect_0/M01_AXI] [get_bd_intf_pins tfhe_block_0/AXI_16]
-  connect_bd_intf_net -intf_net smartconnect_0_M02_AXI [get_bd_intf_pins smartconnect_0/M02_AXI] [get_bd_intf_pins tfhe_block_0/AXI_17]
-  connect_bd_intf_net -intf_net smartconnect_0_M03_AXI [get_bd_intf_pins smartconnect_0/M03_AXI] [get_bd_intf_pins tfhe_block_0/AXI_18]
-  connect_bd_intf_net -intf_net smartconnect_0_M04_AXI [get_bd_intf_pins smartconnect_0/M04_AXI] [get_bd_intf_pins tfhe_block_0/AXI_19]
-  connect_bd_intf_net -intf_net smartconnect_0_M05_AXI [get_bd_intf_pins smartconnect_0/M05_AXI] [get_bd_intf_pins tfhe_block_0/AXI_20]
   connect_bd_intf_net -intf_net smartconnect_1_M00_AXI [get_bd_intf_pins smartconnect_1/M00_AXI] [get_bd_intf_pins tfhe_block_0/AXI_00]
   connect_bd_intf_net -intf_net smartconnect_1_M01_AXI [get_bd_intf_pins smartconnect_1/M01_AXI] [get_bd_intf_pins tfhe_block_0/AXI_01]
   connect_bd_intf_net -intf_net smartconnect_1_M02_AXI [get_bd_intf_pins smartconnect_1/M02_AXI] [get_bd_intf_pins tfhe_block_0/AXI_02]
-  connect_bd_intf_net -intf_net smartconnect_1_M03_AXI [get_bd_intf_pins smartconnect_1/M03_AXI] [get_bd_intf_pins tfhe_block_0/AXI_03]
+  connect_bd_intf_net -intf_net smartconnect_1_M03_AXI [get_bd_intf_pins tfhe_block_0/AXI_03] [get_bd_intf_pins smartconnect_1/M03_AXI]
   connect_bd_intf_net -intf_net smartconnect_1_M04_AXI [get_bd_intf_pins smartconnect_1/M04_AXI] [get_bd_intf_pins tfhe_block_0/AXI_04]
   connect_bd_intf_net -intf_net smartconnect_1_M05_AXI [get_bd_intf_pins smartconnect_1/M05_AXI] [get_bd_intf_pins tfhe_block_0/AXI_05]
   connect_bd_intf_net -intf_net smartconnect_1_M06_AXI [get_bd_intf_pins smartconnect_1/M06_AXI] [get_bd_intf_pins tfhe_block_0/AXI_06]
-  connect_bd_intf_net -intf_net smartconnect_1_M07_AXI [get_bd_intf_pins smartconnect_1/M07_AXI] [get_bd_intf_pins tfhe_block_0/AXI_07]
-  connect_bd_intf_net -intf_net xdma_0_M_AXI [get_bd_intf_pins smartconnect_0/S00_AXI] [get_bd_intf_pins xdma_0/M_AXI]
-  connect_bd_intf_net -intf_net xdma_0_M_AXI_LITE [get_bd_intf_pins tfhe_block_0/s00_axi] [get_bd_intf_pins xdma_0/M_AXI_LITE]
-  connect_bd_intf_net -intf_net xdma_0_pcie_mgt [get_bd_intf_ports pci_express_x8] [get_bd_intf_pins xdma_0/pcie_mgt]
+  connect_bd_intf_net -intf_net smartconnect_1_M07_AXI [get_bd_intf_pins tfhe_block_0/AXI_07] [get_bd_intf_pins smartconnect_1/M07_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M08_AXI [get_bd_intf_pins tfhe_block_0/AXI_16] [get_bd_intf_pins smartconnect_1/M08_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M09_AXI [get_bd_intf_pins smartconnect_1/M09_AXI] [get_bd_intf_pins tfhe_block_0/AXI_17]
+  connect_bd_intf_net -intf_net smartconnect_1_M10_AXI [get_bd_intf_pins tfhe_block_0/AXI_18] [get_bd_intf_pins smartconnect_1/M10_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M11_AXI [get_bd_intf_pins smartconnect_1/M11_AXI] [get_bd_intf_pins tfhe_block_0/AXI_19]
+  connect_bd_intf_net -intf_net smartconnect_1_M12_AXI [get_bd_intf_pins tfhe_block_0/AXI_20] [get_bd_intf_pins smartconnect_1/M12_AXI]
+  connect_bd_intf_net -intf_net xdma_1_M_AXI [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins xdma_1/M_AXI]
+  connect_bd_intf_net -intf_net xdma_1_M_AXI_LITE [get_bd_intf_pins xdma_1/M_AXI_LITE] [get_bd_intf_pins tfhe_block_0/s00_axi]
+  connect_bd_intf_net -intf_net xdma_1_pcie_mgt [get_bd_intf_ports pci_express_x8] [get_bd_intf_pins xdma_1/pcie_mgt]
 
   # Create port connections
   connect_bd_net -net clk_wiz_0_apb_clk  [get_bd_pins clk_wiz_0/apb_clk] \
@@ -377,15 +362,14 @@ proc create_root_design { parentCell } {
   connect_bd_net -net hbm_ref_clk_1_1  [get_bd_ports hbm_ref_clk_1] \
   [get_bd_pins tfhe_block_0/HBM_REF_CLK_1]
   connect_bd_net -net pcie_perstn_1  [get_bd_ports pcie_perstn] \
-  [get_bd_pins xdma_0/sys_rst_n]
+  [get_bd_pins xdma_1/sys_rst_n]
   connect_bd_net -net tfhe_block_0_user_led  [get_bd_pins tfhe_block_0/user_led] \
   [get_bd_ports leds]
   connect_bd_net -net util_ds_buf_0_IBUF_DS_ODIV2  [get_bd_pins util_ds_buf_0/IBUF_DS_ODIV2] \
-  [get_bd_pins xdma_0/sys_clk]
+  [get_bd_pins xdma_1/sys_clk]
   connect_bd_net -net util_ds_buf_0_IBUF_OUT  [get_bd_pins util_ds_buf_0/IBUF_OUT] \
-  [get_bd_pins xdma_0/sys_clk_gt]
-  connect_bd_net -net xdma_0_axi_aclk1  [get_bd_pins xdma_0/axi_aclk] \
-  [get_bd_pins smartconnect_0/aclk] \
+  [get_bd_pins xdma_1/sys_clk_gt]
+  connect_bd_net -net xdma_0_axi_aclk1  [get_bd_pins xdma_1/axi_aclk] \
   [get_bd_pins smartconnect_1/aclk] \
   [get_bd_pins xpm_cdc_gen_0/src_clk] \
   [get_bd_pins tfhe_block_0/TFHE_CLK] \
@@ -403,8 +387,7 @@ proc create_root_design { parentCell } {
   [get_bd_pins tfhe_block_0/AXI_18_ACLK] \
   [get_bd_pins tfhe_block_0/AXI_19_ACLK] \
   [get_bd_pins tfhe_block_0/AXI_20_ACLK]
-  connect_bd_net -net xdma_0_axi_aresetn1  [get_bd_pins xdma_0/axi_aresetn] \
-  [get_bd_pins smartconnect_0/aresetn] \
+  connect_bd_net -net xdma_0_axi_aresetn1  [get_bd_pins xdma_1/axi_aresetn] \
   [get_bd_pins smartconnect_1/aresetn] \
   [get_bd_pins xpm_cdc_gen_0/src_in] \
   [get_bd_pins tfhe_block_0/s00_axi_aresetn] \
@@ -413,20 +396,22 @@ proc create_root_design { parentCell } {
   [get_bd_pins tfhe_block_0/APB_0_PRESET_N]
 
   # Create address segments
-  assign_bd_address -offset 0x00000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_2 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_00/reg0] -force
-  assign_bd_address -offset 0x10000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_3 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_01/reg0] -force
-  assign_bd_address -offset 0x20000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_4 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_02/reg0] -force
-  assign_bd_address -offset 0x30000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_5 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_03/reg0] -force
-  assign_bd_address -offset 0x40000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_6 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_04/reg0] -force
-  assign_bd_address -offset 0x50000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_7 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_05/reg0] -force
-  assign_bd_address -offset 0x60000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_8 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_06/reg0] -force
-  assign_bd_address -offset 0x70000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_9 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_07/reg0] -force
-  assign_bd_address -offset 0x000100000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_18 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_16/reg0] -force
-  assign_bd_address -offset 0x000110000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_19 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_17/reg0] -force
-  assign_bd_address -offset 0x000120000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_20 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_18/reg0] -force
-  assign_bd_address -offset 0x000130000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_21 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_19/reg0] -force
-  assign_bd_address -offset 0x000140000000 -range 0x10000000 -with_name SEG_tfhe_block_0_reg0_22 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_20/reg0] -force
-  assign_bd_address -offset 0x00000000 -range 0x00001000 -target_address_space [get_bd_addr_spaces xdma_0/M_AXI_LITE] [get_bd_addr_segs tfhe_block_0/s00_axi/reg0] -force
+  assign_bd_address -offset 0x00000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_00/reg0] -force
+  assign_bd_address -offset 0x20000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_1 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_01/reg0] -force
+  assign_bd_address -offset 0x40000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_2 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_04/reg0] -force
+  assign_bd_address -offset 0x60000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_3 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_07/reg0] -force
+  assign_bd_address -offset 0xE0000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_7 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_02/reg0] -force
+  assign_bd_address -offset 0x000100000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_8 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_03/reg0] -force
+  assign_bd_address -offset 0x000120000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_9 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_05/reg0] -force
+  assign_bd_address -offset 0x000140000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0_10 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_06/reg0] -force
+  assign_bd_address -offset 0x00000000 -range 0x000100000000 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI_LITE] [get_bd_addr_segs tfhe_block_0/s00_axi/reg0] -force
+
+  # Exclude Address Segments
+  exclude_bd_addr_seg -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_17/reg0]
+  exclude_bd_addr_seg -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_19/reg0]
+  exclude_bd_addr_seg -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_20/reg0]
+  exclude_bd_addr_seg -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_16/reg0]
+  exclude_bd_addr_seg -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_18/reg0]
 
 
   # Restore current instance
@@ -452,8 +437,6 @@ CONFIG.USER_MC0_TRAFFIC_OPTION {Linear} \
 CONFIG.USER_SWITCH_ENABLE_00 {FALSE} \
 CONFIG.USER_XSDB_INTF_EN {FALSE} \
 ] [get_ips hbm_0]
-#set_property GENERATE_SYNTH_CHECKPOINT false [get_ips hbm_0]
-#generate_target all [get_ips hbm_0]
 
 # add and configure the right hbm stack
 create_ip -name hbm -vendor xilinx.com -library ip -version 1.0 -module_name hbm_1
@@ -466,14 +449,16 @@ CONFIG.USER_SINGLE_STACK_SELECTION {RIGHT} \
 CONFIG.USER_SWITCH_ENABLE_00 {FALSE} \
 CONFIG.USER_XSDB_INTF_EN {FALSE} \
 ] [get_ips hbm_1]
-#set_property GENERATE_SYNTH_CHECKPOINT false [get_ips hbm_1]
-#generate_target all [get_ips hbm_1]
 
 create_root_design ""
 
 
 # set tfhe_pu_top as top module
 set_property top tfhe_pu_top [current_fileset]
+
+# disable out-of-context synthesis
+set_property GENERATE_SYNTH_CHECKPOINT FALSE [get_files *.xci]
+generate_target all [get_files tfhe_pu_bd.bd]
 
 # refresh block design
 update_module_reference tfhe_pu_bd_tfhe_block_0_0

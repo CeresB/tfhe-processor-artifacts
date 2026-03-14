@@ -55,8 +55,8 @@ architecture Behavioral of pbs_tb is
                i_lwe_b              : in  rotate_idx;
                i_lwe_ai             : in  rotate_idx;
                i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
-               i_sample_extract_idx : in  idx_int;
-               o_sample_extract_idx : out idx_int;
+               -- i_sample_extract_idx : in  idx_int;
+               -- o_sample_extract_idx : out idx_int;
                o_result             : out sub_polynom(0 to throughput - 1);
                o_next_module_reset  : out std_ulogic
           );
@@ -83,7 +83,7 @@ architecture Behavioral of pbs_tb is
      signal bsk_i_part            : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext - 1);
      signal pbs_result            : sub_polynom(0 to throughput - 1); -- v4p ignore w-303
      signal ai                    : rotate_idx;
-     signal sample_extract_idx    : idx_int;
+     -- signal sample_extract_idx    : idx_int;
      signal pbs_lookup_table_part : sub_polynom(0 to throughput - 1);
 
      signal in_polym_cnt        : unsigned(0 to get_bit_length(k) - 1);
@@ -124,8 +124,8 @@ begin
                i_lookup_table_part  => pbs_lookup_table_part,
                i_lwe_b              => pbs_lwe_b,
                i_lwe_ai             => ai,
-               i_sample_extract_idx => sample_extract_idx,
-               o_sample_extract_idx => open,
+               -- i_sample_extract_idx => sample_extract_idx,
+               -- o_sample_extract_idx => open,
                i_BSK_i_part         => bsk_i_part,
                o_result             => pbs_result,
                o_next_module_reset  => pbs_output_not_ready
@@ -165,7 +165,7 @@ begin
                     end if;
                     in_coeff_cnt <= in_coeff_cnt + to_unsigned(throughput, in_coeff_cnt'length);
                     if in_polym_cnt = to_unsigned(0, in_polym_cnt'length) and in_coeff_cnt = to_unsigned(0, in_coeff_cnt'length) then
-                         sample_extract_idx <= sample_extract_default_sample_extract_idx;
+                         -- sample_extract_idx <= sample_extract_default_sample_extract_idx;
                          if input_choice = '0' then
                               pbs_lwe_b <= to_rotate_idx(lwe_test_cipher_0.lwe.b);
                               for i in 0 to ai_array'length-1 loop

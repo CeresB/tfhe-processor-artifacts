@@ -384,8 +384,8 @@ begin
                end if;
 
                for i in 0 to index_original_value'length / 2 - 1 loop
-                    index_original_value(i) <= to_unsigned(i, idx_int'length) + resize(input_coeff_cnt(input_coeff_cnt'length-1), idx_int'length);
-                    index_original_value(throughput / 2 + i) <= to_unsigned(i + num_coefficients / 2, idx_int'length) + resize(input_coeff_cnt(input_coeff_cnt'length-1), idx_int'length);
+                    index_original_value(i) <= to_unsigned(i, idx_int'length) + ('0' & input_coeff_cnt(input_coeff_cnt'length-1));
+                    index_original_value(throughput / 2 + i) <= to_unsigned(i + num_coefficients / 2, idx_int'length) + ('0' & input_coeff_cnt(input_coeff_cnt'length-1));
                end loop;
           end if;
      end process;

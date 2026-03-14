@@ -23,6 +23,7 @@ library IEEE;
 library work;
      use work.datatypes_utils.all;
      use work.constants_utils.all;
+     -- use work.ntt_utils.overflow_reduced_num;
 
      -- this computes: (a mod ntt_prime) via the solution presented in the Number Theoretic Transform (NTT) FPGA
      -- Accelerator paper by Austin Hartshorn et al. (HLW)
@@ -57,6 +58,9 @@ architecture Behavioral of modulo_solinas is
      signal temp_b_c_shifted : synthesiseable_uint_extended;
      signal temp_res         : synthesiseable_int_extended;
      signal res_buf : synthesiseable_uint;
+     -- signal sign_bit: std_ulogic;
+     -- signal overflow_bit: std_ulogic;
+     signal temp_res_core: synthesiseable_uint;
 
 begin
 
@@ -73,20 +77,59 @@ begin
                -- stage 0
                temp_d_a_b <= (d_expanded - signed('0' & a)) - signed('0' & b);
                temp_b_c <= ('0' & b) + c;
-
                -- stage 1
                temp_res <= signed('0' & temp_b_c_shifted) + temp_d_a_b; -- cannot have a carry but has 0 for the sign
+               -- temp_res <= signed(shift_left(resize(b,temp_res'length),32) + shift_left(resize(c,temp_res'length),32) + resize(d,temp_res'length) - resize(a,temp_res'length) - resize(b,temp_res'length));
 
-               -- stage 2
-               if temp_res(0) = '1' then -- if negative
-                    res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) + to_synth_int(p));
-               elsif temp_res > to_synth_int_extended(p) then
-                    res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) - to_synth_int(p));
-               else
-                    res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1));
-               end if;
+               -- -- stage 2
+               -- if temp_res(0) = '1' then -- if negative
+               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) + to_synth_int(p));
+               -- elsif temp_res > to_synth_int_extended(p) then
+               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) - to_synth_int(p));
+               -- else
+               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1));
+               -- end if;
           end if;
      end process;
+
+     -- sign_bit <= temp_res(0);
+     -- overflow_bit <= temp_res(1);
+     temp_res_core <= unsigned(temp_res(2 to temp_res'length-1));
+
+     partial: if use_partial_reduction generate
+          process (i_clk) is
+          begin
+            if rising_edge(i_clk) then
+               -- stage 2
+               if temp_res(0) = '1' then -- if negative
+                    res_buf <= temp_res_core + p; -- we know the result is positive, so we can ignore the sign bit
+               elsif temp_res(1) = '1' then
+                    -- res_buf <= temp_res_core + overflow_reduced_num; -- is not an advantage here, Vivado cannot simply switch between addition and substraction of p
+                    res_buf <= temp_res_core - p;
+               else
+                    res_buf <= temp_res_core;
+               end if;
+            end if;
+          end process;
+     end generate;
+     
+     not_partial: if not use_partial_reduction generate
+          process (i_clk) is
+          begin
+            if rising_edge(i_clk) then
+               -- stage 2
+               if temp_res(0) = '1' then -- if negative
+                    res_buf <= temp_res_core + p; -- we know the result is positive, so we can ignore the sign bit
+               elsif temp_res > to_synth_int_extended(p) then
+                    -- res_buf <= temp_res_core + overflow_reduced_num; -- is not an advantage here, Vivado cannot simply switch between addition and substraction of p
+                    res_buf <= temp_res_core - p;
+               else
+                    res_buf <= temp_res_core;
+               end if;
+            end if;
+          end process;     
+     end generate;
+     
 
      a <= i_num(0 to i_num'length - 96 - 1);
      b <= i_num(i_num'length - 96 to i_num'length - 64 - 1);
