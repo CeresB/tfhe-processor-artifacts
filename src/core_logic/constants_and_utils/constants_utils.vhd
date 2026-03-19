@@ -52,7 +52,7 @@ package constants_utils is
 
   -- values you may change
   constant log2_num_coefficients                : integer := 10;                                                                                                                --10
-  constant log2_ntt_throughput                  : integer := 5;                                                                                                                 --5;
+  constant log2_ntt_throughput                  : integer := 1;                                                                                                                 --5;
   constant ntt_modulo_solution                  : integer := ntt_modulo_solution_default * boolean'pos(debug_mode) + ntt_modulo_solution_solinas * boolean'pos(not debug_mode); -- ntt_modulo_solution_solinas, ntt_modulo_solution_default
   constant use_karazuba                         : boolean := not debug_mode;                                                                                                    -- karazuba is only implemented for unsigned_polym_coefficient_bit_width=64. If false, default mult is used, which works for any bit width.
   constant karazuba_depth_2                     : boolean := true;                                                                                                              -- only valid if use_karazuba=true
@@ -62,6 +62,7 @@ package constants_utils is
   -- experimental values that may lead to a better sythesis result
   constant fp_stage_substage_ouput_buffers                       : boolean := true; -- for less congestion and better timing
   constant rotate_polym_ram_idx_out_buffer                       : boolean := false;                                                                     -- inactive, leave to false
+  constant use_alternate_mult_karazuba                           : boolean := true;
   constant use_mult_karazuba_in_buffer                           : boolean := false;
   constant use_mult_karazuba_dsp_level_in_buffer                 : boolean := false;
   constant default_cascaded_bram                                 : boolean := log2_num_coefficients - log2_ntt_throughput > log2_coeffs_per_bram;
@@ -76,7 +77,7 @@ package constants_utils is
   constant ntt_butterfly_in_bufs                                 : boolean := false;                                                                     -- if true improves timing but more LUTRAM consumption
   constant ntt_butterfly_out_bufs                                : boolean := false;                                                                     -- if true improves timing but slightly more FF consumption
   constant ntt_stage_logic_out_bufs                              : integer := 1;                                                                         -- must be at least 1
-  constant rolling_butterfly_buffers                             : boolean := false;                                                                     -- if true leads to worse results
+  constant rolling_butterfly_buffers                             : boolean := log2_ntt_throughput > 4;
   constant counter_buffer_len                                    : integer := 1;                                                                         -- must be at least 1
   constant use_easy_red_out_buffer                               : boolean := false;
   constant use_solinas_red_out_buffer                            : boolean := false;

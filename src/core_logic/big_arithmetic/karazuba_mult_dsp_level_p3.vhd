@@ -61,25 +61,30 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
      signal a0_buf : half_reg;
      signal a1_buf : half_rest_reg;
      signal b0_buf : half_reg;
-     signal b0_buf2     : half_reg;
      signal b1_buf : half_rest_reg;
+     signal b0_buf2     : half_reg;
+     -- signal b1_buf2     : half_rest_reg;
+     signal a0_buf2     : half_reg;
+     signal a1_buf2     : half_rest_reg;
+     signal b0_buf21     : half_reg;
+     signal b1_buf21     : half_rest_reg;
      signal b1_buf_wo_msb : half_rest_reg;
      signal b1_buf2_wo_msb     : half_rest_reg;
 
      signal p1 : full_rest_reg; -- 16x16 bit
      signal p2 : full_reg; -- 16x16 bit
-     signal p3 : unsigned(0 to (rest_base + 1)+(half_base+1) - 1); -- 18x17 bit
+     signal p3 : unsigned(0 to (rest_base + 1)+(half_base + 1) - 1); -- 18x17 bit
 
      signal p2_lower : half_reg;
+     signal p2_upper : half_reg;
      signal p2_lower_buf_1 : half_reg;
      signal p2_lower_buf_2 : half_reg;
-     signal p3_plusp2upper_minus_p1plusp2_lower : half_reg;
-     signal p123 : unsigned(0 to o_res'length-p2_lower'length-half_base - 1);
+     signal p123 : unsigned(0 to o_res'length-p2_lower'length - 1);
 
-     signal p3_plusp2upper_minus_p1plusp2: unsigned(0 to p3'length-1); -- always positive
-     signal p1_buf: full_rest_reg;
-     signal p1_buf_1: full_rest_reg;
-     signal p1_plus_p2_minus_p2upper : unsigned(0 to p1'length + 1 - 1); -- +1 for carry
+     signal p1_buf: unsigned(0 to p1'length-1);
+     signal p1_buf_2: unsigned(0 to p123'length-1);
+     signal p1_plus_p2 : unsigned(0 to p1'length + 1 - 1); -- +1 for carry
+     signal p1_plus_p2_buf : unsigned(0 to p1_plus_p2'length - 1);
 
      -- wait registers for the multiplication result which are pushed back into the DSPs
      type wait_registers_mult_result_p1 is array (natural range <>) of unsigned(0 to p1'length - 1);
@@ -88,18 +93,18 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
      constant dsp_mult_retiming_length: integer := dsp_retiming_length-1-1; -- without preadder and with input buffered
      signal p1_wait_regs : wait_registers_mult_result_p1(0 to dsp_mult_retiming_length - 1);
      signal p2_wait_regs : wait_registers_mult_result_p2(0 to dsp_mult_retiming_length - 1);
-     signal p3_wait_regs : wait_registers_mult_result_p3(0 to dsp_mult_retiming_length-1 - 1); -- -1 because we need the value for the post-adder
+     signal p3_wait_regs : wait_registers_mult_result_p3(0 to dsp_mult_retiming_length - 1);
 
      signal a1_plus_a0 : unsigned(0 to a1'length + 1 - 1); -- +1 for carry
      signal b1_plus_b0 : unsigned(0 to b1_buf_wo_msb'length - 1);
 
      signal a1_plus_a0_buf : unsigned(0 to a1_plus_a0'length - 1);
      signal a1_plus_a0_buf2 : unsigned(0 to a1_plus_a0'length - 1);
-     signal a1_plus_a0_wait_buf : unsigned(0 to a1_plus_a0'length - 1);
      signal a1_plus_a0_wait_buf_2 : unsigned(0 to a1_plus_a0'length - 1);
+     signal a1_plus_a0_wait_buf_3 : unsigned(0 to a1_plus_a0'length - 1);
+     signal a1_plus_a0_wait_buf_4 : unsigned(0 to a1_plus_a0'length - 1);
 
      signal b1_msb: std_ulogic;
-     signal b1_msb_buf_1: std_ulogic;
 
      signal num0_buf: unsigned(0 to i_num0'length-1);
      signal num1_buf: unsigned(0 to i_num1'length-1);
@@ -116,7 +121,7 @@ begin
      p2 <= p2_wait_regs(p2_wait_regs'length - 1);
      p3 <= p3_wait_regs(p3_wait_regs'length - 1);
 
-     o_res <= unsigned(std_ulogic_vector(p123) & std_ulogic_vector(p3_plusp2upper_minus_p1plusp2_lower) & std_ulogic_vector(p2_lower_buf_2));
+     o_res <= unsigned(std_ulogic_vector(p123) & std_ulogic_vector(p2_lower_buf_2));
 
      in_buf: if use_mult_karazuba_dsp_level_in_buffer generate
           process (i_clk) is
@@ -130,6 +135,37 @@ begin
      no_in_buf: if not use_mult_karazuba_dsp_level_in_buffer generate
           num0_buf <= i_num0;
           num1_buf <= i_num1;
+     end generate;
+
+     no_lut_out_buf: if use_alternate_mult_karazuba generate
+          p2_lower_buf_1 <= p2_lower;
+          p1_plus_p2_buf <= p1_plus_p2;
+          p1_buf_2 <= p1_buf & p2_upper;
+          process (i_clk) is
+          begin
+            if rising_edge(i_clk) then
+               a1_buf2 <= a1_buf;
+               a0_buf2 <= a0_buf;
+               b0_buf21 <= b0_buf;
+               b1_buf21 <= b1_buf;
+               a1_plus_a0_wait_buf_4 <= a1_plus_a0_wait_buf_3;
+            end if;
+          end process;
+     end generate;
+     lut_out_buf: if not use_alternate_mult_karazuba generate
+          a1_buf2 <= a1_buf;
+          a0_buf2 <= a0_buf;
+          b0_buf21 <= b0_buf;
+          b1_buf21 <= b1_buf;
+          a1_plus_a0_wait_buf_4 <= a1_plus_a0_wait_buf_3;
+          process (i_clk) is
+          begin
+            if rising_edge(i_clk) then
+               p2_lower_buf_1 <= p2_lower;
+               p1_plus_p2_buf <= p1_plus_p2;
+               p1_buf_2 <= p1_buf & p2_upper;
+            end if;
+          end process;
      end generate;
 
      process (i_clk)
@@ -146,38 +182,35 @@ begin
                a1_plus_a0 <= ('0' & a1) + a0; -- extend one operand for the carry
 
                -- stage 1
-               p2_wait_regs(0) <= a0_buf * b0_buf;
-               p1_wait_regs(0) <= a1_buf * b1_buf;
+               p2_wait_regs(0) <= a0_buf2 * b0_buf21;
+               p1_wait_regs(0) <= a1_buf2 * b1_buf21;
                a1_plus_a0_buf <= a1_plus_a0; -- inside dsp
-               a1_plus_a0_wait_buf <= a1_plus_a0;
                b1_buf2_wo_msb <= b1_buf_wo_msb; -- inside dsp
                b0_buf2 <= b0_buf; -- inside dsp
-               b1_msb_buf_1 <= b1_msb;
-
-               -- stage 2
-               a1_plus_a0_buf2 <= a1_plus_a0_buf; -- inside dsp
-               b1_plus_b0 <= b1_buf2_wo_msb + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend for the carry bit is in b1_buf2_wo_msb
-               if b1_msb_buf_1 = '1' then
-                    a1_plus_a0_wait_buf_2 <= a1_plus_a0_wait_buf;
+               -- b1_buf2 <= b1_buf;
+               if b1_msb = '1' then
+                    a1_plus_a0_wait_buf_2 <= a1_plus_a0;
                else
                     a1_plus_a0_wait_buf_2 <= to_unsigned(0, a1_plus_a0_wait_buf_2'length);
                end if;
 
+               -- stage 2
+               a1_plus_a0_buf2 <= a1_plus_a0_buf; -- inside dsp
+               b1_plus_b0 <= b1_buf2_wo_msb + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend for the carry bit is in b1_buf2_wo_msb
+               a1_plus_a0_wait_buf_3 <= a1_plus_a0_wait_buf_2;
+
                -- stage 3
                p3_wait_regs(0) <= a1_plus_a0_buf2 * b1_plus_b0;
-               p1_plus_p2_minus_p2upper <= resize(p1,p1_plus_p2_minus_p2upper'length) + p2 - p2(0 to half_base - 1) - (a1_plus_a0_wait_buf_2 & to_unsigned(0,half_base));
-               p2_lower <= p2(half_base to p2'length - 1);
-               p1_buf <= p1;
 
                -- stage 4
-               p2_lower_buf_1 <= p2_lower;
-               p1_buf_1 <= p1_buf;
-               p3_plusp2upper_minus_p1plusp2 <= p3 - p1_plus_p2_minus_p2upper; -- should be done in p3-dsp-post-adder
+               p2_upper <= p2(0 to half_base - 1);
+               p1_plus_p2 <= ('0' & p1) + p2;
+               p2_lower <= p2(half_base to p2'length - 1);
+               p1_buf <= p1 + a1_plus_a0_wait_buf_4;
 
                -- stage 5
                p2_lower_buf_2 <= p2_lower_buf_1;
-               p123 <= p1_buf_1 + p3_plusp2upper_minus_p1plusp2(0 to p3_plusp2upper_minus_p1plusp2'length-half_base-1);
-               p3_plusp2upper_minus_p1plusp2_lower <= p3_plusp2upper_minus_p1plusp2(p3_plusp2upper_minus_p1plusp2'length-half_base to p3_plusp2upper_minus_p1plusp2'length-1);
+               p123 <= p1_buf_2 + p3 - resize(p1_plus_p2_buf, p123'length);
 
                p1_wait_regs(1 to p1_wait_regs'length - 1) <= p1_wait_regs(0 to p1_wait_regs'length - 2);
                p2_wait_regs(1 to p2_wait_regs'length - 1) <= p2_wait_regs(0 to p2_wait_regs'length - 2);

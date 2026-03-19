@@ -303,28 +303,35 @@ begin
           ai_roll_factor_msb <= '0';
      end generate;
 
-     shift_block0: shift_array
-          generic map (
-               log2_arr_len => log2_half_throughput,
-               num_stages   => rotate_reorder_stages
-          )
-          port map (
-               i_clk   => i_clk,
-               i_arr   => in_block0,
-               i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
-               o_res   => in_block0_shifted
-          );
-     shift_block1: shift_array
-          generic map (
-               log2_arr_len => log2_half_throughput,
-               num_stages   => rotate_reorder_stages
-          )
-          port map (
-               i_clk   => i_clk,
-               i_arr   => in_block1,
-               i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
-               o_res   => in_block1_shifted
-          );
+     shift: if log2_half_throughput > 0 generate
+          shift_block0: shift_array
+               generic map (
+                    log2_arr_len => log2_half_throughput,
+                    num_stages   => rotate_reorder_stages
+               )
+               port map (
+                    i_clk   => i_clk,
+                    i_arr   => in_block0,
+                    i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
+                    o_res   => in_block0_shifted
+               );
+          shift_block1: shift_array
+               generic map (
+                    log2_arr_len => log2_half_throughput,
+                    num_stages   => rotate_reorder_stages
+               )
+               port map (
+                    i_clk   => i_clk,
+                    i_arr   => in_block1,
+                    i_shift => inner_block_offset_buf(inner_block_offset_buf'length - 1),
+                    o_res   => in_block1_shifted
+               );
+     end generate;
+     no_shift: if not (log2_half_throughput > 0) generate
+          in_block0_shifted <= in_block0;
+          in_block1_shifted <= in_block1;
+     end generate;
+     
      input_blocks_rearanged <= in_block0_shifted & in_block1_shifted;
      shift_long: shift_array
           generic map (
