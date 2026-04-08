@@ -55,6 +55,32 @@ architecture Behavioral of top is
           );
      end component;
 
+     component default_mult is
+          generic (
+               base_len            : integer;
+               dsp_retiming_length : integer
+          );
+          port (
+               i_clk  : in  std_ulogic;
+               i_num0 : in  unsigned(0 to base_len - 1);
+               i_num1 : in  unsigned(0 to base_len - 1);
+               o_res  : out unsigned(0 to 2 * base_len - 1)
+          );
+     end component;
+
+     component karazuba_mult is
+          generic (
+               base_len            : integer;
+               dsp_retiming_length : integer
+          );
+          port (
+               i_clk  : in  std_ulogic;
+               i_num0 : in  unsigned(0 to 2 * base_len - 1);
+               i_num1 : in  unsigned(0 to 2 * base_len - 1);
+               o_res  : out unsigned(0 to 4 * base_len - 1)
+          );
+     end component;
+
      -- we keep blink logic, so that we know for certain when the fpga is running
      component blink_logic is
           port (
@@ -77,7 +103,7 @@ architecture Behavioral of top is
      signal led_o        : std_ulogic_vector(0 to num_leds - 1);
      signal led_o_buffer : std_ulogic_vector(0 to num_leds - 1);
 
-     constant base_len: integer := 33;
+     constant base_len: integer := 64;
      subtype mult_in_type_num is unsigned(0 to base_len - 1);
      signal mult_input0: mult_in_type_num := to_unsigned(1,base_len);
      signal mult_input1: mult_in_type_num := to_unsigned(1,base_len);
@@ -105,9 +131,31 @@ begin
      end generate;
 
      -- the main code
-     karazuba_mult: mult_dsp_level
+     -- kara_mult: mult_dsp_level
+     --      generic map (
+     --           base_len            => base_len,
+     --           dsp_retiming_length => dsp_level_retiming_registers
+     --      )
+     --      port map (
+     --           i_clk  => clk_signal,
+     --           i_num0 => mult_input0,
+     --           i_num1 => mult_input1,
+     --           o_res  => mult_res
+     --      );
+     -- def_mult: default_mult
+     --      generic map (
+     --           base_len            => base_len,
+     --           dsp_retiming_length => dsp_level_retiming_registers
+     --      )
+     --      port map (
+     --           i_clk  => clk_signal,
+     --           i_num0 => mult_input0,
+     --           i_num1 => mult_input1,
+     --           o_res  => mult_res
+     --      );
+     kara_mult: karazuba_mult
           generic map (
-               base_len            => base_len,
+               base_len            => 32,
                dsp_retiming_length => dsp_level_retiming_registers
           )
           port map (

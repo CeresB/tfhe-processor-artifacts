@@ -76,12 +76,12 @@ begin
 
      round_input: for coeff_idx in 0 to i_sub_polym'length - 1 generate
           -- MSB is at 0. Set lower bits of i_sub_polym to 0, the others to what they were
-          input_round_bits_zeroed(coeff_idx)(input_round_bits_zeroed(0)'length - decomp_num_LSBs_to_round to input_round_bits_zeroed(0)'length - 1) <= (others => '0');
-          input_round_bits_zeroed(coeff_idx)(0 to input_round_bits_zeroed(0)'length - decomp_num_LSBs_to_round - 1)                                 <= i_sub_polym(coeff_idx)(0 to input_round_bits_zeroed(0)'length - decomp_num_LSBs_to_round - 1);
+          input_round_bits_zeroed(coeff_idx)(input_round_bits_zeroed(0)'length - num_LSBs_to_round to input_round_bits_zeroed(0)'length - 1) <= (others => '0');
+          input_round_bits_zeroed(coeff_idx)(0 to input_round_bits_zeroed(0)'length - num_LSBs_to_round - 1)                                 <= i_sub_polym(coeff_idx)(0 to i_sub_polym(0)'length - num_LSBs_to_round - 1);
           -- make round-bit to the corresponding number
           round_bit_as_value(coeff_idx)(i_sub_polym(0)'length - (num_LSBs_to_round + 1)) <= i_sub_polym(coeff_idx)(i_sub_polym(0)'length - num_LSBs_to_round);
           -- ignore the last bits of the reduced result
-          input_rounded_wo_round_bits(coeff_idx) <= input_rounded_reduced(coeff_idx)(0 to input_rounded_reduced(0)'length - 1 - decomp_num_LSBs_to_round);
+          input_rounded_wo_round_bits(coeff_idx) <= input_rounded_reduced(coeff_idx)(0 to input_rounded_reduced(0)'length - 1 - num_LSBs_to_round);
      end generate;
 
      add_round_bit: for coeff_idx in 0 to i_sub_polym'length - 1 generate
@@ -116,8 +116,6 @@ begin
      end generate;
 
      roll_bufferchain: if stages_slices'length > 0 generate -- if bufferchain long enough
-          -- TODO: use memory instead of rolling
-
           -- roll bufferchain
           -- first one is special as nothing will be added to it
           process (i_clk)

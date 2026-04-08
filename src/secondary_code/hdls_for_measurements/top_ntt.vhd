@@ -63,17 +63,21 @@ architecture Behavioral of top is
           );
      end component;
 
-     component manual_constant_bram is
+     component manual_bram is
           generic (
-               ram_content         : sub_polynom;
                addr_length         : integer;
+               ram_length          : integer;
                ram_out_bufs_length : integer;
-               ram_type            : string
+               ram_type            : string;
+               coeff_bit_width     : integer := unsigned_polym_coefficient_bit_width
           );
           port (
                i_clk     : in  std_ulogic;
+               i_wr_en   : in  std_ulogic;
+               i_wr_data : in  unsigned(0 to coeff_bit_width - 1);
+               i_wr_addr : in  unsigned(0 to addr_length - 1);
                i_rd_addr : in  unsigned(0 to addr_length - 1);
-               o_data    : out synthesiseable_uint
+               o_data    : out unsigned(0 to coeff_bit_width - 1)
           );
      end component;
 
@@ -93,10 +97,11 @@ architecture Behavioral of top is
      end component;
 
      constant num_leds             : integer := 8;
-     constant input_ram_num_coeffs : integer := 2;--2 ** log2_coeffs_per_bram; vivado optimizes this away for some reason
+     constant input_ram_num_coeffs : integer := 2 ** log2_coeffs_per_bram; -- vivado optimizes this away for some reason
 
      -- clock and controls
      signal clk_signal : std_logic := 'U';
+     signal ntt_not_ready : std_logic;
 
      signal led_o        : std_ulogic_vector(0 to num_leds - 1);
      signal led_o_buffer : std_ulogic_vector(0 to num_leds - 1);
@@ -104,6 +109,8 @@ architecture Behavioral of top is
      signal ntt_reset        : std_ulogic := '1';
      signal ntt_result       : sub_polynom(0 to throughput - 1);
      signal ntt_input        : sub_polynom(0 to throughput - 1);
+     signal ntt_input_buf        : sub_polynom(0 to throughput - 1);
+     -- signal in_data        : sub_polynom(0 to throughput - 1);
      
      constant cnt_buffer_length    : integer := 2 * log2_ntt_throughput;
      type in_coeff_cnt_type is array (natural range <>) of unsigned(0 to get_bit_length(input_ram_num_coeffs - 1) - 1);
@@ -113,12 +120,13 @@ architecture Behavioral of top is
      constant num_other_leds          : integer := get_max(num_leds - num_leds_for_ntt_result, 0);
 
      signal led_secondary : std_logic_vector(num_other_leds - 1 downto 0) := (others => 'U');
-     signal reset         : std_ulogic_vector(0 to 100 - 1)               := (others => '1');
+     signal reset         : std_ulogic_vector(0 to 15 - 1)               := (others => '1');
+     signal bits_cnt: unsigned(0 to get_bit_length(synthesiseable_uint'length-1)-1) := to_unsigned(0, get_bit_length(synthesiseable_uint'length-1));
 
-     constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1) := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234);
+     -- constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1) := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234123487);
 
      attribute dont_touch               : string;
-     attribute dont_touch of ntt_input  : signal is "true";
+     attribute dont_touch of ntt_input_buf  : signal is "true";
      attribute dont_touch of ntt_result : signal is "true";
 
 begin
@@ -159,9 +167,9 @@ begin
           port map (
                i_clk               => clk_signal,
                i_reset             => ntt_reset,
-               i_sub_polym         => ntt_input,
+               i_sub_polym         => ntt_input_buf,
                o_result            => ntt_result,
-               o_next_module_reset => open
+               o_next_module_reset => ntt_not_ready
           );
 
      in_coeff_cnt_logic: process (clk_signal) is
@@ -181,24 +189,31 @@ begin
           if rising_edge(clk_signal) then
                reset(0) <= '0';
                reset(1 to reset'length - 1) <= reset(0 to reset'length - 2);
+               bits_cnt <= bits_cnt + to_unsigned(1, bits_cnt'length);
 
                for i in 0 to num_leds_for_ntt_result - 1 loop
-                    led_o(i) <= std_ulogic(ntt_result(i + to_integer(ntt_in_coeff_cnt(ntt_in_coeff_cnt'length-1)))(0));
+                    led_o(i) <= std_ulogic(ntt_result(0)(i));
+                    -- led_o(i) <= std_ulogic(ntt_result(i + to_integer(ntt_in_coeff_cnt(ntt_in_coeff_cnt'length-1)))(to_integer(bits_cnt)));
                end loop;
                led_o_buffer <= led_o;
+               ntt_input_buf <= ntt_input;
           end if;
      end process;
 
      input_ram_blocks: for coeff_idx in 0 to ntt_input'length - 1 generate
-          input_ram: manual_constant_bram
+          input_ram: manual_bram
                generic map (
-                    ram_content         => input_ram_content(coeff_idx * input_ram_num_coeffs to (coeff_idx + 1) * input_ram_num_coeffs - 1),
                     addr_length         => ntt_in_coeff_cnt(0)'length,
-                    ram_out_bufs_length => default_ram_retiming_latency,
-                    ram_type            => ram_style_auto
+                    ram_length          => input_ram_num_coeffs,
+                    ram_out_bufs_length => minimum_ram_retiming_latency,
+                    ram_type            => ram_style_auto,
+                    coeff_bit_width     => ntt_input(0)'length
                )
                port map (
                     i_clk     => clk_signal,
+                    i_wr_en   => '1',
+                    i_wr_data => ntt_result(coeff_idx),
+                    i_wr_addr => ntt_in_coeff_cnt(ntt_in_coeff_cnt'length-1),
                     i_rd_addr => ntt_in_coeff_cnt(ntt_in_coeff_cnt'length-1),
                     o_data    => ntt_input(coeff_idx)
                );

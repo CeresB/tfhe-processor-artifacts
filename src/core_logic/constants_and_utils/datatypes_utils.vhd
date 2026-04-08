@@ -425,13 +425,15 @@ package body datatypes_utils is
      )
           return sub_polynom is
           variable res   : sub_polynom(0 to sub_polym_length-1);
-          variable seed1 : positive := seed+1;
-          variable seed2 : positive := seed+2;
+          variable seed1 : positive;
+          variable seed2 : positive;
           variable x     : real;
           constant integer_precision : integer := 30;
           constant remaining_length  : integer := synthesiseable_uint'length - 2 * integer_precision;
           constant max_int_val       : real    := real(2 ** 30);
      begin
+          seed1 := seed + 1;
+          seed2 := seed + 2;
           for i in 0 to res'length - 1 loop
                -- vivado can only do 32-bit-signed numbers, meaning 31-bit unsigned
                -- so we generate the a random 64-bit number in 3 parts
@@ -445,6 +447,8 @@ package body datatypes_utils is
                res(i)(integer_precision to 2 * integer_precision - 1) := to_unsigned(integer(floor(x * max_int_val)), integer_precision);
                uniform(seed1, seed2, x);
                res(i)(2 * integer_precision to synthesiseable_uint'length - 1) := to_unsigned(integer(floor(x * max_int_val)), remaining_length);
+               seed1 := seed1 + 1000;
+               seed2 := seed2 + 1000;
           end loop;
           return res;
      end function;

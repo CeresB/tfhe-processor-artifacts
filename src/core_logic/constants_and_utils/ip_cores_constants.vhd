@@ -31,7 +31,7 @@ package ip_cores_constants is
      constant hbm_stack_num_ps_ports           : integer := 16;
      constant hbm_coeffs_per_clock_per_ps_port : integer := 4;
      constant hbm_data_width                   : integer := hbm_coeffs_per_clock_per_ps_port * unsigned_polym_coefficient_bit_width;
-     constant hbm_worst_case_delay_in_clks     : integer := 150;                                         --150; -- 117 cycles refresh and some buffer
+     constant hbm_worst_case_delay_in_clks     : integer := 120*boolean'pos(not debug_mode);                                         -- 117 cycles refresh and some buffer
      constant hbm_bytes_per_ps_port            : integer := hbm_data_width / 8;
      constant hbm_ps_port_addr_width           : integer := 23 + 1 * boolean'pos(hbm_8gb_per_stack) + 5; -- +5 because 4:0 unused as we always address 32 bytes = 256 bits at once
      constant hbm_port_and_stack_addr_width    : integer := 1 + 4;                                       -- bit 32 selects hbm stack, 31:28 select AXI port
@@ -50,7 +50,7 @@ package ip_cores_constants is
      constant hbm_resp_bit_width      : integer                        := 2;
 
      constant ai_hbm_num_ps_ports   : integer := 1;
-     constant ai_burstlen           : integer := get_min(1 - 1, hbm_burstlen_bit_width); -- keep small, high burstlen can lead to significantly higher k_lwe and with that lower PBS/s score
+     constant ai_burstlen           : integer := get_min(1, hbm_burstlen_bit_width); -- keep small, high burstlen can lead to significantly higher k_lwe and with that lower PBS/s score
      constant ai_hbm_coeffs_per_clk : integer := ai_hbm_num_ps_ports * hbm_coeffs_per_clock_per_ps_port;
      constant ai_hbm_bytes_per_clk  : integer := ai_hbm_coeffs_per_clk * 8;
      constant bsk_burstlen          : integer := to_integer(hbm_burstlen_max);

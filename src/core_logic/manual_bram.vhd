@@ -62,13 +62,25 @@ begin
           end if;
      end process;
 
-     read_logic: process (i_clk) is
-     begin
-          if rising_edge(i_clk) then
-               out_bufs(0) <= ram_buf(to_integer(i_rd_addr));
-               out_bufs(1 to out_bufs'length - 1) <= out_bufs(0 to out_bufs'length - 2);
-          end if;
-     end process;
+     read_logic: if not (out_bufs'length-1 > 0) generate
+          process (i_clk) is
+          begin
+               if rising_edge(i_clk) then
+                    out_bufs(0) <= ram_buf(to_integer(i_rd_addr));
+               end if;
+          end process;
+     end generate;
+
+     read_logic_with_buf: if out_bufs'length-1 > 0 generate
+          process (i_clk) is
+          begin
+               if rising_edge(i_clk) then
+                    out_bufs(0) <= ram_buf(to_integer(i_rd_addr));
+                    out_bufs(1 to out_bufs'length - 1) <= out_bufs(0 to out_bufs'length - 2);
+               end if;
+          end process;
+     end generate;
+
      o_data <= out_bufs(out_bufs'length - 1);
 
 end architecture;

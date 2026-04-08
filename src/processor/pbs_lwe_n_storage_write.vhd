@@ -27,20 +27,19 @@ library IEEE;
 library work;
      use work.constants_utils.all;
      use work.datatypes_utils.all;
-     use work.tfhe_constants.all;
      use work.math_utils.all;
+     use work.tfhe_constants.all;
      use work.processor_utils.all;
 
 entity pbs_lwe_n_storage_write is
      port (
           i_clk                : in  std_ulogic;
           i_pbs_result         : in  sub_polynom(0 to pbs_throughput - 1);
-          i_sample_extract_idx : in  idx_int;
+          -- i_sample_extract_idx : in  idx_int;
           i_ram_coeff_idx      : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
           i_reset              : in  std_ulogic;
 
           o_coeffs             : out sub_polynom(0 to pbs_throughput - 1);
-          o_coeffs_valid       : out std_ulogic;
           o_next_module_reset  : out std_ulogic
      );
 end entity;
@@ -66,16 +65,13 @@ architecture Behavioral of pbs_lwe_n_storage_write is
      end component;
 
      signal next_module_reset_bufferchain : std_ulogic_vector(0 to default_ram_retiming_latency + 2 - 1); -- +2 because first compute idx, then read block from buffer, then extract coefficient
-     signal coeff_valid_bufferchain       : std_ulogic_vector(0 to next_module_reset_bufferchain'length - 1);
 
+     constant ciphertext_out_blocks: integer := ((num_polyms_per_rlwe_ciphertext * num_coefficients) / pbs_throughput);
+     signal ciphertext_out_cnt  : unsigned(0 to get_bit_length(ciphertext_out_blocks-1) - 1);
      signal pbs_res_cnt         : unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
-     signal pbs_res_cnt_delayed : unsigned(0 to pbs_res_cnt'length - 1);
-     signal pbs_res_block_cnt   : unsigned(0 to log2_num_coefficients - log2_pbs_throughput - 1);
-     signal pbs_res_polym_cnt   : unsigned(0 to get_bit_length(num_polyms_per_rlwe_ciphertext - 1) - 1);
 
      signal cnt_till_next_batch : unsigned(0 to get_bit_length(blind_rotation_latency - 1) - 1);
 
-     signal all_values_in_buffer_processed : std_ulogic;
      signal write_en                       : std_ulogic;
 
      signal pbs_res_reordered : sub_polynom(0 to i_pbs_result'length - 1);
@@ -87,70 +83,43 @@ begin
           if rising_edge(i_clk) then
                if i_reset = '1' then
                     pbs_res_cnt <= to_unsigned(0, pbs_res_cnt'length);
-                    pbs_res_block_cnt <= to_unsigned(0, pbs_res_block_cnt'length);
-                    pbs_res_polym_cnt <= to_unsigned(0, pbs_res_polym_cnt'length);
                     next_module_reset_bufferchain(0) <= '1';
-                    cnt_till_next_batch <= to_unsigned(0, cnt_till_next_batch'length);
+                    -- cnt_till_next_batch steers write enable. write_en must be set one in advance but not here since we reorder the input
+                    cnt_till_next_batch <= to_unsigned(blind_rotation_latency-1, cnt_till_next_batch'length);
 
-                    all_values_in_buffer_processed <= '0';
-                    write_en <= '1';
+                    write_en <= '0';
+                    ciphertext_out_cnt <= to_unsigned(0, ciphertext_out_cnt'length);
                else
-
-                    if cnt_till_next_batch < blind_rotation_latency - 1 then
-                         cnt_till_next_batch <= cnt_till_next_batch + to_unsigned(1, cnt_till_next_batch'length);
-                         if cnt_till_next_batch = num_pbs_out_write_cycles - 1 then
-                              write_en <= '0';
-                         end if;
+                    if cnt_till_next_batch = 0 then
+                         cnt_till_next_batch <= to_unsigned(blind_rotation_latency-1, cnt_till_next_batch'length);
                     else
-                         cnt_till_next_batch <= to_unsigned(0, cnt_till_next_batch'length);
-                         all_values_in_buffer_processed <= '0';
-                         write_en <= '1';
+                         cnt_till_next_batch <= cnt_till_next_batch - to_unsigned(1, cnt_till_next_batch'length);
                     end if;
+                    ciphertext_out_cnt <= ciphertext_out_cnt + to_unsigned(1, ciphertext_out_cnt'length); -- modolus itself
 
-                    if cnt_till_next_batch < num_pbs_out_write_cycles - 1 then
-                         -- catch pbs output
-                         pbs_res_block_cnt <= pbs_res_block_cnt + to_unsigned(1, pbs_res_block_cnt'length); -- modulos itself
-                         if pbs_res_block_cnt = to_unsigned(2 ** pbs_res_block_cnt'length - 1, pbs_res_block_cnt'length) then
-                              if pbs_res_polym_cnt < to_unsigned(num_polyms_per_rlwe_ciphertext - 1, pbs_res_polym_cnt'length) then
-                                   pbs_res_polym_cnt <= pbs_res_polym_cnt + to_unsigned(1, pbs_res_polym_cnt'length);
-                              else
-                                   pbs_res_polym_cnt <= to_unsigned(0, pbs_res_polym_cnt'length);
-                              end if;
-                         end if;
-
-                         if pbs_res_polym_cnt < to_unsigned(num_polyms_per_rlwe_ciphertext - 1, pbs_res_polym_cnt'length) then
+                    if cnt_till_next_batch > to_unsigned(blind_rotation_latency-1-num_pbs_out_write_cycles,cnt_till_next_batch'length) then
+                         -- catch pbs output, but of the b-polynom only the first block
+                         if ciphertext_out_cnt < to_unsigned(write_blocks_in_lwe_n_ram-1, ciphertext_out_cnt'length) then
+                              write_en <= '1';
                               if pbs_res_cnt < to_unsigned(write_blocks_in_lwe_n_ram - 1, pbs_res_cnt'length) then
                                    pbs_res_cnt <= pbs_res_cnt + to_unsigned(1, pbs_res_cnt'length);
                               else
                                    pbs_res_cnt <= to_unsigned(0, pbs_res_cnt'length);
                               end if;
-                              pbs_res_reordered <= i_pbs_result;
                          else
-                              -- catch b-value with extract-idx
-                              -- pbs_throughput is a power of 2 --> first log2_throughput-bits are coefficient idx, the others are block idx
-                              if (pbs_res_block_cnt = i_sample_extract_idx(0 to i_sample_extract_idx'length - log2_pbs_throughput - 1)) then
-                                   -- we can write the b-value anywhere in its block but for later convinience we write it at the last position.
-                                   pbs_res_reordered(pbs_res_reordered'length - 1) <= i_pbs_result(to_integer(i_sample_extract_idx(i_sample_extract_idx'length - log2_pbs_throughput - 1 to i_sample_extract_idx'length - 1)));
-                                   -- ignore the other values in that block
-                                   if pbs_res_cnt < to_unsigned(write_blocks_in_lwe_n_ram - 1, pbs_res_cnt'length) then
-                                        pbs_res_cnt <= pbs_res_cnt + to_unsigned(1, pbs_res_cnt'length);
-                                   else
-                                        pbs_res_cnt <= to_unsigned(0, pbs_res_cnt'length);
-                                   end if;
-                              end if;
+                              -- ignore the other b coefficients
+                              write_en <= '0';
                          end if;
+                    else
+                         next_module_reset_bufferchain(0) <= '0';
                     end if;
+                    pbs_res_reordered <= i_pbs_result; -- no reordering, sample-extract-index 0
                end if;
-
-               pbs_res_cnt_delayed <= pbs_res_cnt;
                next_module_reset_bufferchain(1 to next_module_reset_bufferchain'length - 1) <= next_module_reset_bufferchain(0 to next_module_reset_bufferchain'length - 2);
-               coeff_valid_bufferchain(0) <= not all_values_in_buffer_processed;
-               coeff_valid_bufferchain(1 to coeff_valid_bufferchain'length - 1) <= coeff_valid_bufferchain(0 to coeff_valid_bufferchain'length - 2);
           end if;
      end process;
 
      o_next_module_reset <= next_module_reset_bufferchain(next_module_reset_bufferchain'length - 1);
-     o_coeffs_valid      <= coeff_valid_bufferchain(coeff_valid_bufferchain'length - 1);
 
      brams_per_throughput: for coeff_idx in 0 to i_pbs_result'length - 1 generate
           ram_elem: manual_bram
@@ -165,7 +134,7 @@ begin
                     i_clk     => i_clk,
                     i_wr_en   => write_en,
                     i_wr_data => pbs_res_reordered(coeff_idx),
-                    i_wr_addr => pbs_res_cnt_delayed,
+                    i_wr_addr => pbs_res_cnt,
                     i_rd_addr => i_ram_coeff_idx,
                     o_data    => o_coeffs(coeff_idx)
                );

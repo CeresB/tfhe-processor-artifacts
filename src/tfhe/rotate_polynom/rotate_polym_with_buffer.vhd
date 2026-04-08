@@ -84,10 +84,10 @@ architecture Behavioral of rotate_polym_with_buffer is
      signal rotate_input                 : sub_polynom(0 to throughput - 1);
      signal rotate_reset                 : std_ulogic;
      signal rotate_reset_from_buffer     : std_ulogic;
-     constant rotate_by_length : integer := (num_coefficients / throughput) - rotate_polym_reset_clks_ahead - 1 + 1 + (counter_buffer_len - 1); -- clks till rotate_buffer drops next_stage reset. -1 because of rotate_by_bufferchain_end, +1 to compute index_plus_ai_reduced
+     constant rotate_by_length : integer := (num_coefficients / throughput) - rotate_polym_reset_clks_ahead - 1 + 1; -- clks till rotate_buffer drops next_stage reset. -1 because of rotate_by_bufferchain_end, +1 to compute index_plus_ai_reduced
      signal rotate_by_bufferchain     : rotate_idx_array(0 to get_max(1, rotate_by_length) - 1);
+     
      signal rotate_by_bufferchain_end : rotate_idx;
-     constant rolling_rotate_by_buffer : boolean := false;
      signal wait_regs_cnt : unsigned(0 to get_bit_length(rotate_by_bufferchain'length - 1) - 1) := to_unsigned(0, get_bit_length(rotate_by_bufferchain'length - 1));
 
 begin
@@ -149,10 +149,10 @@ begin
                process (i_clk)
                begin
                     if rising_edge(i_clk) then
-                         if wait_regs_cnt < to_unsigned(rotate_by_bufferchain'length - 1, wait_regs_cnt'length) then
-                              wait_regs_cnt <= wait_regs_cnt + to_unsigned(1, wait_regs_cnt'length);
+                         if wait_regs_cnt = 0 then
+                              wait_regs_cnt <= to_unsigned(rotate_by_bufferchain'length - 1, wait_regs_cnt'length);
                          else
-                              wait_regs_cnt <= to_unsigned(0, wait_regs_cnt'length);
+                              wait_regs_cnt <= wait_regs_cnt - to_unsigned(1, wait_regs_cnt'length);
                          end if;
                          rotate_by_bufferchain(to_integer(wait_regs_cnt)) <= i_rotate_by + to_unsigned(rotate_offset, i_rotate_by'length);
                          rotate_by_bufferchain_end <= rotate_by_bufferchain(to_integer(wait_regs_cnt));

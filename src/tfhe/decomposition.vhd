@@ -74,6 +74,8 @@ architecture Behavioral of decomposition is
      type slices_length_throughput is array (natural range <>) of sub_polynom_slice_bits(0 to throughput - 1);
 
      signal temp_result : synth_L_int_vector(0 to throughput * decomposition_length - 1);
+     signal temp_result_buf : synth_L_int_vector(0 to throughput * decomposition_length - 1);
+     signal result_buf : synth_uint_vector(0 to throughput * decomposition_length - 1);
 
 begin
 
@@ -89,19 +91,55 @@ begin
                i_sub_polym => i_sub_polym,
                o_result    => temp_result
           );
+     
+     temp_buf: if use_decomp_res_temp_buffer generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               temp_result_buf <= temp_result;
+          end if;
+          end process;
+     end generate;
+     no_temp_buf: if not use_decomp_res_temp_buffer generate
+          temp_result_buf <= temp_result;
+     end generate;
+     out_buf: if use_decomp_res_output_buffer generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               o_result <= result_buf;
+          end if;
+          end process;
+     end generate;
+     no_out_buf: if not use_decomp_res_output_buffer generate
+          o_result <= result_buf;
+     end generate;
 
-     red_modules: for i in 0 to temp_result'length - 1 generate
+     red_modules: for i in 0 to result_buf'length - 1 generate
           -- the decomposed values must be reduced because they can be negative
-          easy_red_module: easy_reduction
-               generic map (
-                    modulus         => tfhe_modulus,
-                    can_be_negative => true
-               )
-               port map (
-                    i_clk     => i_clk,
-                    i_num     => signed_to_synth_int_extended(signed(temp_result(i))),
-                    o_mod_res => o_result(i)
-               );
+          partial: if use_partial_reduction generate
+               -- there cant be an overflow with the solinas prime, just always add
+               process (i_clk) is
+               begin
+                    if rising_edge(i_clk) then
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length)) + tfhe_modulus;
+                    end if;
+               end process;
+          end generate;
+          not_partial: if not use_partial_reduction generate
+               process (i_clk) is
+               begin
+               if rising_edge(i_clk) then
+                    if temp_result_buf(i)(0) = '1' then
+                         -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(-1,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i))) + tfhe_modulus;
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length)) + tfhe_modulus;
+                    else
+                         -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(0,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i)));
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length));
+                    end if;
+               end if;
+               end process;
+          end generate;
      end generate;
 
 end architecture;

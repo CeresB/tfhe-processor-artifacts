@@ -105,8 +105,10 @@ architecture Behavioral of single_stage_base is
 
      signal bf_twiddle_factor : sub_polynom(0 to bf_block_num_butterflys - 1);
 
-     type tw_cnt_buf is array (natural range <>) of unsigned(0 to get_bit_length(tws_per_bf - 1) - 1);
-     signal twiddle_cnt : tw_cnt_buf(0 to counter_buffer_len - 1);
+     signal twiddle_cnt : unsigned(0 to get_bit_length(tws_per_bf - 1) - 1);
+     
+     signal internal_reset_chain : std_ulogic_vector(0 to ntt_cnts_early_reset - 1);
+     signal internal_reset       : std_ulogic;
 
 begin
 
@@ -121,38 +123,42 @@ begin
                i_reset   => i_reset,
                o_tripped => o_next_stage_reset
           );
+     
+     reset_chain: if internal_reset_chain'length > 0 generate
+          process (i_clk) is
+          begin
+               if rising_edge(i_clk) then
+                    internal_reset_chain <= i_reset & internal_reset_chain(0 to internal_reset_chain'length - 2);
+               end if;
+          end process;
+          internal_reset <= internal_reset_chain(internal_reset_chain'length - 1);
+     end generate;
+     no_reset_chain: if not (internal_reset_chain'length > 0) generate
+          internal_reset <= i_reset;
+     end generate;
 
      process (i_clk)
      begin
           if rising_edge(i_clk) then
-               if i_reset = '1' then
-                    twiddle_cnt(0) <= to_unsigned(0, twiddle_cnt(0)'length);
+               if internal_reset = '1' then
+                    twiddle_cnt <= to_unsigned(0, twiddle_cnt'length);
                else
-                    twiddle_cnt(0) <= twiddle_cnt(0) + to_unsigned(1, twiddle_cnt(0)'length);
+                    twiddle_cnt <= twiddle_cnt + to_unsigned(1, twiddle_cnt'length);
                end if;
           end if;
      end process;
      
-     cnt_buf: if twiddle_cnt'length > 1 generate
-          process (i_clk) is
-          begin
-               if rising_edge(i_clk) then
-                    twiddle_cnt(1 to twiddle_cnt'length - 1) <= twiddle_cnt(0 to twiddle_cnt'length - 2);
-               end if;
-          end process;
-     end generate;
-
      butterfly_block: for butterfly_idx in 0 to bf_block_num_butterflys - 1 generate
           tw_ram: manual_constant_bram
                generic map (
                     ram_content         => twiddle_factors(butterfly_idx * tws_per_bf to (butterfly_idx + 1) * tws_per_bf - 1),
-                    addr_length         => twiddle_cnt(0)'length,
+                    addr_length         => twiddle_cnt'length,
                     ram_out_bufs_length => ntt_twiddle_rams_retiming_latency,
                     ram_type            => twiddle_ram_type
                )
                port map (
                     i_clk     => i_clk,
-                    i_rd_addr => twiddle_cnt(twiddle_cnt'length - 1),
+                    i_rd_addr => twiddle_cnt,
                     o_data    => bf_twiddle_factor(butterfly_idx)
                );
           ntt_butterfly_instance: ntt_butterfly_optimized

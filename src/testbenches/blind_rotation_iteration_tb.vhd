@@ -121,6 +121,8 @@ architecture Behavioral of blind_rotation_iteration_tb is
      constant test_pbs_acc_buf_length : integer := blind_rot_iter_min_latency_till_monomial_mult; -- v4p ignore w-303
      constant test_pbs_br_latency     : integer := blind_rot_iter_minimum_latency;                -- v4p ignore w-303
      constant test_pbs_extra_latency  : integer := blind_rot_iter_extra_latency;                  -- v4p ignore w-303
+     constant test_ntt_num_clks_reset_early: integer := ntt_num_clks_reset_early;                 -- v4p ignore w-303
+     constant test_clks_till_ntt_out_buffer_ready: integer := clks_till_ntt_out_buffer_ready; -- v4p ignore w-303
 
 begin
      clk <= not clk after TIME_DELTA when finished /= '1' else '0';
@@ -263,8 +265,8 @@ begin
           -- signal with noise that the decomposition should round away
           for i in 0 to input_rlwe_polyms0'length - 1 loop
                for coeff_idx in 0 to input_rlwe_polyms0(0)'length - 1 loop
-                    input_rlwe_polyms0(i)(coeff_idx) <= input_rlwe_polyms0_base(i)(coeff_idx) + to_synth_uint(2 ** (log2_decomp_base - 1) - 1); --input_rlwe.a(i), want no carry through rounding here
-                    input_rlwe_polyms1(i)(coeff_idx) <= input_rlwe_polyms1_base(i)(coeff_idx) + to_synth_uint(2 ** log2_decomp_base - 1); --input_rlwe.a(i);
+                    input_rlwe_polyms0(i)(coeff_idx) <= input_rlwe_polyms0_base(i)(coeff_idx);-- + to_synth_uint(2 ** (log2_decomp_base - 1) - 1); --input_rlwe.a(i), want no carry through rounding here
+                    input_rlwe_polyms1(i)(coeff_idx) <= input_rlwe_polyms1_base(i)(coeff_idx);-- + to_synth_uint(2 ** log2_decomp_base - 1); --input_rlwe.a(i);
                end loop;
           end loop;
 
@@ -305,7 +307,6 @@ begin
 
           -- handle early reset for the module
           ext_prod_reset <= '0';
-          wait for (counter_buffer_len - 1) * clk_period;
           reset <= '0';
 
           wait until ext_prod_first_result_polym_ready = '1';

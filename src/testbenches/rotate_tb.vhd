@@ -67,7 +67,7 @@ architecture Behavioral of rotate_tb is
 
      signal rotate_input  : sub_polynom(0 to throughput - 1);
      signal rotate_output : sub_polynom(0 to throughput - 1);
-     signal rotate_reset  : std_ulogic_vector(0 to counter_buffer_len - 1);
+     signal rotate_reset  : std_ulogic;
 
      signal rotate_input_coeff_cnt  : idx_int := to_unsigned(0, log2_num_coefficients);
      signal rotate_output_coeff_cnt : idx_int := to_unsigned(0, log2_num_coefficients);
@@ -77,7 +77,7 @@ architecture Behavioral of rotate_tb is
      signal rotate_result_buffer_polym    : polynom;
      signal result_rotate_tb              : polynom; -- v4p ignore w-303
      signal clk                           : std_ulogic := '1';
-     signal rotate_firstoutput_not_ready  : std_ulogic_vector(0 to counter_buffer_len - 1);
+     signal rotate_firstoutput_not_ready  : std_ulogic;
      signal rotate_complete_output_ready  : std_ulogic := '0';
 
      signal finished : std_ulogic := '0';
@@ -112,16 +112,17 @@ begin
                i_sub_polym         => rotate_input,
                i_rotate_by         => test_rotate_by_delayed,
                o_result            => rotate_output,
-               o_next_module_reset => rotate_firstoutput_not_ready(0)
+               o_next_module_reset => rotate_firstoutput_not_ready
           );
 
-     rotate_complete_output_ready <= '1' when rotate_output_coeff_cnt = to_unsigned(0, rotate_output_coeff_cnt'length) and rotate_firstoutput_not_ready(rotate_firstoutput_not_ready'length - 1) = '0' and rotate_reset_delayed = '0' else '0';
+     rotate_complete_output_ready <= '1' when rotate_output_coeff_cnt = to_unsigned(0, rotate_output_coeff_cnt'length) and rotate_firstoutput_not_ready = '0' and rotate_reset_delayed = '0' else '0';
 
-     one_early: if (num_coefficients / throughput) - rotate_polym_reorder_delay < 0 generate
-          assert not ((num_coefficients / throughput) - rotate_polym_reorder_delay < - 1) report "throughput not big enough" severity error;
+     one_early: if (num_coefficients / throughput) - buffer_answer_delay < 0 generate
+          assert not ((num_coefficients / throughput) - buffer_answer_delay < - 1) report "throughput not big enough" severity error;
+          test_rotate_by_delayed <= test_rotate_by;
      end generate;
-     on_time: if not ((num_coefficients / throughput) - rotate_polym_reorder_delay < 0) generate
-          lbl: process (clk) is
+     on_time: if not ((num_coefficients / throughput) - buffer_answer_delay < 0) generate
+          process (clk) is
           begin
                if rising_edge(clk) then
                     test_rotate_by_delayed <= test_rotate_by;
@@ -133,11 +134,9 @@ begin
      begin
           if rising_edge(clk) then
 
-               rotate_reset_delayed <= rotate_reset(0);
-               rotate_reset(1 to rotate_reset'length - 1) <= rotate_reset(0 to rotate_reset'length - 2);
-               rotate_firstoutput_not_ready(1 to rotate_firstoutput_not_ready'length - 1) <= rotate_firstoutput_not_ready(0 to rotate_firstoutput_not_ready'length - 2);
+               rotate_reset_delayed <= rotate_reset;
 
-               if rotate_reset(rotate_reset'length - 1) = '1' then
+               if rotate_reset = '1' then
                     rotate_input_coeff_cnt <= to_unsigned(0, rotate_input_coeff_cnt'length);
                     clk_cnt <= 0;
                else
@@ -145,7 +144,7 @@ begin
                     rotate_input_coeff_cnt <= rotate_input_coeff_cnt + to_unsigned(throughput, rotate_input_coeff_cnt'length);
                     rotate_input <= rotate_input_tb(to_integer(rotate_input_coeff_cnt) to to_integer(rotate_input_coeff_cnt) + throughput - 1);
 
-                    if rotate_firstoutput_not_ready(rotate_firstoutput_not_ready'length - 1) = '0' then
+                    if rotate_firstoutput_not_ready = '0' then
                          rotate_output_coeff_cnt <= rotate_output_coeff_cnt + to_unsigned(throughput, rotate_output_coeff_cnt'length);
                          rotate_result_buffer_polym(to_integer(rotate_output_coeff_cnt) to to_integer(rotate_output_coeff_cnt) + throughput - 1) <= rotate_output;
 
@@ -161,7 +160,7 @@ begin
 
      simulation_start_tests: process
      begin
-          rotate_reset(0) <= '1';
+          rotate_reset <= '1';
           rotate_input_tb <= get_test_sub_polym(rotate_input_tb'length, 1, 1); -- 1,2,3,...
           rotate_by_array(0) <= 2 * polynom'length;
           rotate_by_array(1) <= polynom'length;
@@ -224,9 +223,8 @@ begin
           end loop;
 
           wait until rising_edge(clk);
-          rotate_reset(0) <= '0';
+          rotate_reset <= '0';
           test_rotate_by <= to_rotate_idx(rotate_by_array(rotate_by_array'length - 1));
-          wait for (counter_buffer_len - 1) * clk_period;
           for i in 0 to rotate_by_array'length - 1 loop
                test_rotate_by <= to_rotate_idx(rotate_by_array(i));
                wait for next_sample_time;
@@ -238,8 +236,8 @@ begin
      simulation_check_rotate_results: process
           variable pass : boolean := false;
      begin
-          wait until rotate_firstoutput_not_ready(0) = '1';
-          wait until rotate_firstoutput_not_ready(0) = '0';
+          wait until rotate_firstoutput_not_ready = '1';
+          wait until rotate_firstoutput_not_ready = '0';
           wait until rotate_complete_output_ready = '1';
           wait until rotate_complete_output_ready = '1';
           wait for TIME_DELTA; -- so that there can be no confusion when reading the output signal

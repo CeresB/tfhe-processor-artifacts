@@ -89,20 +89,18 @@ architecture Behavioral of polym_buffer is
      -- signal polym_buffer_choice  : std_ulogic;
      signal internal_input : sub_polynom(0 to throughput - 1);
 
-     type in_coeff_cnt_buf is array (natural range <>) of unsigned(0 to coeffs_per_ram_block_bit_length - 1 - 1);
-     signal in_coeff_cnt         : in_coeff_cnt_buf(0 to counter_buffer_len - 1);
-     signal in_coeff_cnt_tripped : std_ulogic_vector(0 to counter_buffer_len - 1);
+     signal in_coeff_cnt         : unsigned(0 to coeffs_per_ram_block_bit_length - 1 - 1);
+     signal in_coeff_cnt_tripped : std_ulogic;
 
      signal in_coeff_cnt_full : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
-     signal in_coeff_offset   : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
+     signal in_coeff_offset   : std_ulogic;
 
      type ping_indices is array (natural range <>) of unsigned(0 to coeffs_per_ram_block_bit_length - 1 - 1);
      type coeff_indices is array (natural range <>) of unsigned(0 to coeffs_per_ram_block_bit_length - 1);
      signal rq_coeff_indices : coeff_indices(0 to throughput / 2 - 1);
-     signal rq_coeff_offset  : unsigned(0 to coeffs_per_ram_block_bit_length - 1);
+     signal rq_coeff_offset  : std_ulogic;
 
-     type rq_ping_indices_buf is array (natural range <>) of ping_indices(0 to throughput / 2 - 1);
-     signal rq_ping_indices : rq_ping_indices_buf(0 to counter_buffer_len - 1);
+     signal rq_ping_indices : ping_indices(0 to throughput / 2 - 1);
 
      signal internal_input_upper  : sub_polynom(0 to throughput_half - 1);
      signal internal_input_lower  : sub_polynom(0 to throughput_half - 1);
@@ -123,28 +121,17 @@ begin
      begin
           if rising_edge(i_clk) then
                if i_reset = '1' then
-                    in_coeff_cnt(0) <= to_unsigned(cnt_start_val, in_coeff_cnt(0)'length);
+                    in_coeff_cnt <= to_unsigned(cnt_start_val, in_coeff_cnt'length);
                else
-                    in_coeff_cnt(0) <= in_coeff_cnt(0) + to_unsigned(cnt_step_val_positive, in_coeff_cnt(0)'length);
-                    if in_coeff_cnt(0) = to_unsigned(cnt_tripping_val, in_coeff_cnt(0)'length) then
-                         in_coeff_cnt_tripped(0) <= '1';
+                    in_coeff_cnt <= in_coeff_cnt + to_unsigned(cnt_step_val_positive, in_coeff_cnt'length);
+                    if in_coeff_cnt = to_unsigned(cnt_tripping_val, in_coeff_cnt'length) then
+                         in_coeff_cnt_tripped <= '1';
                     else
-                         in_coeff_cnt_tripped(0) <= '0';
+                         in_coeff_cnt_tripped <= '0';
                     end if;
                end if;
           end if;
      end process;
-     
-     cnt_buf: if in_coeff_cnt'length > 1 generate
-          process (i_clk) is
-          begin
-               if rising_edge(i_clk) then
-                    in_coeff_cnt(1 to in_coeff_cnt'length - 1) <= in_coeff_cnt(0 to in_coeff_cnt'length - 2);
-                    rq_ping_indices(1 to rq_ping_indices'length - 1) <= rq_ping_indices(0 to rq_ping_indices'length - 2);
-                    in_coeff_cnt_tripped(1 to in_coeff_cnt_tripped'length - 1) <= in_coeff_cnt_tripped(0 to in_coeff_cnt_tripped'length - 2);
-               end if;
-          end process;
-     end generate;
 
      non_reversed: if not store_reversed generate
           internal_input <= i_sub_polym;
@@ -156,8 +143,8 @@ begin
           end generate;
      end generate;
 
-     idx_bit_map: for i in 0 to rq_ping_indices(0)'length - 1 generate
-          rq_ping_indices(0)(i) <= i_ram_coeff_idx(i * rq_ping_indices(0)(0)'length to (i + 1) * rq_ping_indices(0)(0)'length - 1);
+     idx_bit_map: for i in 0 to rq_ping_indices'length - 1 generate
+          rq_ping_indices(i) <= i_ram_coeff_idx(i * rq_ping_indices(0)'length to (i + 1) * rq_ping_indices(0)'length - 1);
      end generate;
 
      brams_per_polym: for coeff_half_idx in 0 to internal_input_upper'length - 1 generate
@@ -211,26 +198,25 @@ begin
      begin
           if rising_edge(i_clk) then
                if i_reset = '1' then
-                    rq_coeff_offset <= to_unsigned(ping_buffer_length, rq_coeff_offset'length);
-                    in_coeff_offset <= to_unsigned(0, in_coeff_offset'length);
+                    rq_coeff_offset <= '1';
+                    in_coeff_offset <= '0';
                else
-                    if in_coeff_cnt_tripped(in_coeff_cnt_tripped'length - 1) = '1' then
-                         rq_coeff_offset <= rq_coeff_offset + to_unsigned(ping_buffer_length, rq_coeff_offset'length);
-                         in_coeff_offset <= in_coeff_offset + to_unsigned(ping_buffer_length, in_coeff_offset'length);
+                    if in_coeff_cnt_tripped = '1' then
+                         rq_coeff_offset <= not rq_coeff_offset;
+                         in_coeff_offset <= not in_coeff_offset;
                     end if;
                end if;
                input_buffer <= internal_input;
-               in_coeff_cnt_full <= in_coeff_offset + unsigned('0' & std_ulogic_vector(in_coeff_cnt(in_coeff_cnt'length - 1)));
+               in_coeff_cnt_full <= unsigned(in_coeff_offset & std_ulogic_vector(in_coeff_cnt));
 
                for i in 0 to rq_coeff_indices'length - 1 loop
-                    rq_coeff_indices(i) <= rq_coeff_offset + unsigned('0' & std_ulogic_vector(rq_ping_indices(rq_ping_indices'length - 1)(i)));
+                    rq_coeff_indices(i) <= unsigned(rq_coeff_offset & std_ulogic_vector(rq_ping_indices(i)));
                end loop;
           end if;
      end process;
 
      internal_input_upper                                          <= input_buffer(0 to internal_input_upper'length - 1);
      internal_input_lower                                          <= input_buffer(internal_input_upper'length to input_buffer'length - 1);
-     o_result(0 to internal_output_upper'length - 1)               <= internal_output_upper;
-     o_result(internal_output_upper'length to o_result'length - 1) <= internal_output_lower;
+     o_result <= internal_output_upper & internal_output_lower;
 
 end architecture;

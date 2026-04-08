@@ -163,6 +163,12 @@ package ntt_utils is
 
      constant ntt_params : ntt_params_with_precomputed_values := get_ntt_params(log2_num_coefficients, negacyclic, ntt_prime, omega, omega_invers, omega_2n, omega_2n_invers, ntt_n_invers);
 
+     -- reducing a 1 bit overflow by substracting the prime can be modeled via an addition. Advantage: the bit widht of the addition is smaller
+     -- e.g. overflow num = 1 0...0 + num_without_overflow_bit | mod p -->  overflow_reduced_num + num_without_overflow_bit | this cannot have a carry when the biggest num to reduce is 2*(p-1)
+     constant overflow_reduced: synthesiseable_uint_extended := shift_left(to_unsigned(1, ntt_prime'length+1),ntt_prime'length) - ntt_prime; -- first bit is always 0
+     constant overflow_bit_width: integer := get_bit_length(overflow_reduced(1 to overflow_reduced'length-1));
+     constant overflow_reduced_num: unsigned(0 to overflow_bit_width-1) := resize(overflow_reduced,overflow_bit_width);
+
 end package;
 
 package body ntt_utils is
@@ -457,7 +463,7 @@ package body ntt_utils is
           constant ntt_num_blocks_per_polym               : integer := 2 ** log2_input_size / 2 ** log2_throughput;                                                                                                                                                                                             -- is a power of 2
           constant ntt_sequential_stages_pipeline_latency : integer := initial_clks_per_sequential_block * (ntt_num_single_stages - 1) + boolean'pos(negacyclic) * sequential_stage_clks_till_first_butterfly_result + boolean'pos(not negacyclic) * sequential_stage_clks_till_first_butterfly_result_no_mult; -- one stage has no ab_mod_p as the twiddles are 1
           constant ntt_parallel_stages_pipeline_latency   : integer := clks_per_butterfly * ntt_num_stages_fully_parallel;
-          constant ntt_stages_pipeline_latency            : integer := ntt_sequential_stages_pipeline_latency + ntt_parallel_stages_pipeline_latency;
+          constant ntt_stages_pipeline_latency            : integer := ntt_sequential_stages_pipeline_latency + ntt_parallel_stages_pipeline_latency + ntt_num_stages_fully_parallel*boolean'pos(fp_stage_substage_ouput_buffers);
           constant intt_rescaling_latency                 : integer := clks_per_ab_mod_p;
      begin
           -- this calculates the latency from first input to first output (NOT the reset-drops to first output latency)
@@ -470,14 +476,14 @@ package body ntt_utils is
                     ntt_block_delay := ntt_num_blocks_per_polym / 2;
                end if;
                for sequential_stage in 0 to ntt_num_single_stages - 1 loop
-                    ntt_block_delay := ntt_block_delay + ntt_stage_logic_out_bufs + ((ntt_num_blocks_per_polym / 2) / (2 ** sequential_stage));
+                    ntt_block_delay := ntt_block_delay + ntt_stage_logic_out_delay + ((ntt_num_blocks_per_polym / 2) / (2 ** sequential_stage));
                end loop;
                ntt_clks_till_first_block_ready := ntt_stages_pipeline_latency + ntt_block_delay;
 
                res := ntt_clks_till_first_block_ready;
           else
                -- fully parallel ntt
-               res := boolean'pos(not negacyclic) * ((ntt_num_stages_fully_parallel - 1) * clks_per_butterfly + clks_per_butterfly_without_mult_modulo) + boolean'pos(negacyclic) * ntt_num_stages_fully_parallel * clks_per_butterfly;
+               res := boolean'pos(not negacyclic) * ((ntt_num_stages_fully_parallel - 1) * clks_per_butterfly + clks_per_butterfly_without_mult_modulo) + boolean'pos(negacyclic) * ntt_num_stages_fully_parallel * clks_per_butterfly + ntt_num_stages_fully_parallel*boolean'pos(fp_stage_substage_ouput_buffers);
           end if;
 
           if intt and with_intt_recaling then

@@ -36,10 +36,10 @@ library work;
 entity pbs_b_buffer is
      port (
           i_clk             : in  std_ulogic;
-          i_new_batch       : in  std_ulogic;
+          i_init       : in  std_ulogic;
           i_lwe_addr        : in  hbm_ps_port_memory_address;
+          i_lwe_addr_valid  : in  std_ulogic;
           i_reset_n         : in  std_ulogic;
-          i_pbs_reset       : in  std_ulogic; -- it takes ram_retiming_latency until values can follow after pbs_reset drops
           i_hbm_read_out    : in  hbm_ps_out_read_pkg;
           o_hbm_read_in     : out hbm_ps_in_read_pkg;
           o_b               : out rotate_idx;
@@ -56,14 +56,18 @@ architecture Behavioral of pbs_b_buffer is
      signal b_val_valid_cnt : unsigned(0 to get_bit_length(clks_b_valid - 1) - 1);
 
      -- use ram retiming registers
-     signal b_storage_end : rotate_idx_array(0 to default_ram_retiming_latency - 1);
+     signal b_storage_end : rotate_idx_array(0 to b_buffer_output_buffer - 1);
 
      signal b_addresses    : hbm_ps_port_memory_address_arr(0 to pbs_batchsize - 1);
-     signal b_addr_in_cnt  : unsigned(0 to get_bit_length(b_addresses'length) - 1);
-     signal b_addr_out_cnt : unsigned(0 to b_addr_in_cnt'length - 1);
+     signal b_addr_ram_in_cnt  : unsigned(0 to get_bit_length(b_addresses'length) - 1);
+     signal b_addr_ram_out_cnt : unsigned(0 to b_addr_ram_in_cnt'length - 1);
 
      signal hbm_part          : sub_polynom(0 to hbm_coeffs_per_clock_per_ps_port - 1);
      signal hbm_data_stripped : rotate_idx_array(0 to hbm_coeffs_per_clock_per_ps_port - 1);
+
+     signal ready_to_output_buf: std_ulogic_vector(0 to b_buffer_output_buffer-1);
+     signal addr_buf_full: std_ulogic;
+     signal b_storage_not_full: std_ulogic;
 
 begin
 
@@ -71,76 +75,81 @@ begin
      o_hbm_read_in.arlen  <= std_logic_vector(to_unsigned(0, o_hbm_read_in.arlen'length));
      o_hbm_read_in.arid   <= std_logic_vector(to_unsigned(0, o_hbm_read_in.arid'length)); -- should not be important for this module
 
+     o_ready_to_output <= ready_to_output_buf(ready_to_output_buf'length-1);
+
      read_write_logic: process (i_clk) is
      begin
           if rising_edge(i_clk) then
                if i_reset_n = '0' then
                     o_hbm_read_in.arvalid <= '0';
-                    o_ready_to_output <= '0';
-
-                    b_addr_out_cnt <= to_unsigned(0, b_addr_out_cnt'length);
-                    b_in_block_cnt <= to_unsigned(0, b_in_block_cnt'length);
+                    ready_to_output_buf(0) <= '0';
+                    b_in_block_cnt <= to_unsigned(pbs_batchsize - 1, b_in_block_cnt'length);
+                    b_addr_ram_in_cnt <= to_unsigned(pbs_batchsize-1, b_addr_ram_in_cnt'length);
+                    -- b_addr_ram_out_cnt <= to_unsigned(pbs_batchsize-1, b_addr_ram_out_cnt'length);
+                    -- b_storage_not_full <= '1';
+                    b_out_block_cnt <= to_unsigned(pbs_batchsize - 1, b_out_block_cnt'length);
+                    b_val_valid_cnt <= to_unsigned(clks_b_valid - 1, b_val_valid_cnt'length);
+                    addr_buf_full <= '0';
                else
-                    -- input from hbm
-                    if i_hbm_read_out.rvalid = '1' then
-                         b_storage(to_integer(b_in_block_cnt)) <= hbm_data_stripped(0);
-                         if b_in_block_cnt < to_unsigned(pbs_batchsize - 1, b_in_block_cnt'length) then
-                              b_in_block_cnt <= b_in_block_cnt + to_unsigned(1, b_in_block_cnt'length);
+                    -- input from op buffer
+                    -- we expect that the op buffer provides batchsize-many b addresses and then stops until the next batch
+                    if i_lwe_addr_valid='1' then
+                         if b_addr_ram_in_cnt = 0 then
+                              b_addr_ram_in_cnt <= to_unsigned(pbs_batchsize-1, b_addr_ram_in_cnt'length);
+                              addr_buf_full <= '1';
                          else
-                              o_ready_to_output <= '1';
-                              b_in_block_cnt <= to_unsigned(0, b_in_block_cnt'length);
+                              b_addr_ram_in_cnt <= b_addr_ram_in_cnt - to_unsigned(1, b_addr_ram_in_cnt'length);
+                              addr_buf_full <= '0';
                          end if;
+                         b_addresses(to_integer(b_addr_ram_in_cnt)) <= i_lwe_addr;
                     end if;
-               end if;
-
-               -- input from op buffer
-               if i_new_batch = '1' then
-                    -- technically we should wait one br-iteration so that everything in b buffer was used, but that only counts for the data, not the addresses
-                    -- but since the hbm is slower than this buffer we are not overwriting any unused data in the buffer
-                    b_addr_in_cnt <= to_unsigned(0, b_addr_in_cnt'length);
-                    b_addr_out_cnt <= to_unsigned(0, b_addr_out_cnt'length);
-               else
-                    -- we expect that after new_batch='1' the op buffer provides batchsize-many b addresses and then stops until new_batch is triggered again
-                    if b_addr_in_cnt < to_unsigned(pbs_batchsize, b_addr_in_cnt'length) then
-                         b_addr_in_cnt <= b_addr_in_cnt + to_unsigned(1, b_addr_in_cnt'length);
-                         b_addresses(to_integer(b_addr_in_cnt)) <= i_lwe_addr;
-                    else
+                    if addr_buf_full='1' then
                          -- we have all b addresses and can start requesting
-                         -- wait one br-iteration before doing this, so that we don't overwrite the values that are used in the current iteration
-                         -- is respected by i_new_batch being one br-iteration late
-                         if i_hbm_read_out.arready = '1' and b_addr_out_cnt < to_unsigned(pbs_batchsize, b_addr_out_cnt'length) then
-                              -- request next b-coeff
-                              b_addr_out_cnt <= b_addr_out_cnt + to_unsigned(1, b_addr_out_cnt'length);
-                              o_hbm_read_in.arvalid <= '1';
-                              o_hbm_read_in.araddr <= b_addresses(to_integer(b_addr_out_cnt));
-                              -- no need to increment address, b-part is always just one coefficient
+                         if i_hbm_read_out.arready = '1' then
+                              if b_addr_ram_out_cnt = 0 then
+                                   b_storage_not_full <= '0';
+                              else
+                                   b_addr_ram_out_cnt <= b_addr_ram_out_cnt - to_unsigned(1, b_addr_ram_out_cnt'length);
+                              end if;
                          else
                               o_hbm_read_in.arvalid <= '0';
                          end if;
-                    end if;
-               end if;
-
-               -- output to pbs module
-               if i_pbs_reset = '0' then
-                    b_val_valid_cnt <= to_unsigned(0, b_val_valid_cnt'length);
-                    -- b is valid for a whole ciphertext, never change it during the time it is valid for
-                    if b_val_valid_cnt < to_unsigned(clks_b_valid - 1, b_val_valid_cnt'length) then
-                         b_val_valid_cnt <= b_val_valid_cnt + to_unsigned(1, b_val_valid_cnt'length);
+                         o_hbm_read_in.arvalid <= b_storage_not_full;
                     else
-                         b_val_valid_cnt <= to_unsigned(0, b_val_valid_cnt'length);
-                         if b_out_block_cnt < to_unsigned(pbs_batchsize - 1, b_out_block_cnt'length) then
-                              b_out_block_cnt <= b_out_block_cnt + to_unsigned(1, b_out_block_cnt'length);
+                         b_addr_ram_out_cnt <= to_unsigned(pbs_batchsize-1, b_addr_ram_out_cnt'length);
+                         b_storage_not_full <= '1';
+                    end if;
+
+                    -- input from hbm
+                    if i_hbm_read_out.rvalid = '1' then
+                         b_storage(to_integer(b_in_block_cnt)) <= hbm_data_stripped(0);
+                         if b_in_block_cnt /= 0 then
+                              b_in_block_cnt <= b_in_block_cnt - to_unsigned(1, b_in_block_cnt'length);
                          else
-                              b_out_block_cnt <= to_unsigned(0, b_out_block_cnt'length);                                   
+                              ready_to_output_buf(0) <= '1';
+                              b_in_block_cnt <= to_unsigned(pbs_batchsize - 1, b_in_block_cnt'length);
                          end if;
                     end if;
-               else
-                    b_out_block_cnt <= to_unsigned(0, b_out_block_cnt'length);
-                    b_val_valid_cnt <= to_unsigned(0, b_val_valid_cnt'length);
-               end if;
 
-               b_storage_end(0) <= b_storage(to_integer(b_out_block_cnt));
-               b_storage_end(1 to b_storage_end'length - 1) <= b_storage_end(0 to b_storage_end'length - 2);
+                    -- output to pbs module
+                    if i_init = '1' then
+                         -- b is valid for a whole ciphertext, never change it during the time it is valid for
+                         if b_val_valid_cnt = 0 then
+                              b_val_valid_cnt <= to_unsigned(clks_b_valid - 1, b_val_valid_cnt'length);
+
+                              if b_out_block_cnt = 0 then
+                                   b_out_block_cnt <= to_unsigned(pbs_batchsize - 1, b_out_block_cnt'length);                                   
+                              else
+                                   b_out_block_cnt <= b_out_block_cnt - to_unsigned(1, b_out_block_cnt'length);
+                              end if;
+                         else
+                              b_val_valid_cnt <= b_val_valid_cnt - to_unsigned(1, b_val_valid_cnt'length);
+                         end if;
+                    end if;
+               end if;
+               ready_to_output_buf(1 to ready_to_output_buf'length - 1) <= ready_to_output_buf(0 to ready_to_output_buf'length - 2);
+               b_storage_end <= b_storage(to_integer(b_out_block_cnt)) & b_storage_end(0 to b_storage_end'length - 2);
+               o_hbm_read_in.araddr <= b_addresses(to_integer(b_addr_ram_out_cnt));
           end if;
      end process;
 

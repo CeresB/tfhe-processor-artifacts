@@ -77,15 +77,18 @@ architecture Behavioral of blind_rotation is
      signal ciphertext_block_cnt  : unsigned(0 to get_bit_length(blocks_per_ciphertext - 1) - 1);
      signal ciphertext_cnt        : unsigned(0 to get_bit_length(ciphertexts_per_blind_rotation - 1) - 1);
      signal blind_rot_iter_input  : sub_polynom(0 to throughput - 1);
+     signal blind_rot_iter_input_buf  : sub_polynom(0 to throughput - 1);
      signal blind_rot_iter_output : sub_polynom(0 to throughput - 1);
+     signal blind_rot_iter_output_buf : sub_polynom(0 to throughput - 1);
      signal blind_rot_iter_reset  : std_ulogic;
-     signal next_module_reset     : std_ulogic;
+     signal blind_rot_iter_reset_buf  : std_ulogic;
 
      type input_arr is array (natural range <>) of sub_polynom(0 to (blind_rot_iter_input'length) * boolean'pos(use_pbs_fake) - 1);
      signal fake_input_storage : input_arr(0 to (blind_rot_iter_latency - 1) * boolean'pos(use_pbs_fake) - 1);
 
      constant ciphertext_cnt_early_trigger : integer := 2*log2_pbs_throughput;
      signal mode_change_bufferchain : std_ulogic_vector(0 to ciphertext_cnt_early_trigger - 1);
+     signal next_module_reset_chain : std_ulogic_vector(0 to mode_change_bufferchain'length+2-1); -- +2 because mode_change takes 2 clk tics before it steers the outputs
 
 begin
 
@@ -101,11 +104,11 @@ begin
                )
                port map (
                     i_clk               => i_clk,
-                    i_reset             => blind_rot_iter_reset,
+                    i_reset             => blind_rot_iter_reset_buf,
                     i_ai                => i_lwe_ai,
-                    i_acc_part          => blind_rot_iter_input,
+                    i_acc_part          => blind_rot_iter_input_buf,
                     i_BSK_i_part        => i_BSK_i_part,
-                    o_result            => blind_rot_iter_output,
+                    o_result            => blind_rot_iter_output_buf,
                     o_next_module_reset => open
                );
      end generate;
@@ -115,48 +118,50 @@ begin
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
-                    if blind_rot_iter_reset = '0' then
-                         fake_input_storage(0) <= blind_rot_iter_input;
+                    if blind_rot_iter_reset_buf = '0' then
+                         fake_input_storage(0) <= blind_rot_iter_input_buf;
                          fake_input_storage(1 to fake_input_storage'length - 1) <= fake_input_storage(0 to fake_input_storage'length - 2);
-                         blind_rot_iter_output <= fake_input_storage(fake_input_storage'length - 1);
+                         blind_rot_iter_output_buf <= fake_input_storage(fake_input_storage'length - 1);
                     end if;
                end if;
           end process;
      end generate;
 
+     o_next_module_reset <= next_module_reset_chain(next_module_reset_chain'length-1);
      process (i_clk)
      begin
           if rising_edge(i_clk) then
+               next_module_reset_chain(1 to next_module_reset_chain'length-1) <= next_module_reset_chain(0 to next_module_reset_chain'length-2);
                if i_reset = '1' then
-                    ciphertext_block_cnt <= to_unsigned(ciphertext_cnt_early_trigger, ciphertext_block_cnt'length);
-                    ciphertext_cnt <= to_unsigned(0, ciphertext_cnt'length);
+                    ciphertext_block_cnt <= to_unsigned(blocks_per_ciphertext - 1 - ciphertext_cnt_early_trigger, ciphertext_block_cnt'length);
+                    ciphertext_cnt <= to_unsigned(ciphertexts_per_blind_rotation - 1, ciphertext_cnt'length);
                     blind_rot_iter_reset <= '1';
-                    next_module_reset <= '1';
-                    o_next_module_reset <= '1';
+                    next_module_reset_chain(0) <= '1';
                else
                     -- input of external product has one delay so reset also needs a delay
                     blind_rot_iter_reset <= '0';
                     -- output of this module has one delay so reset for next module also needs a delay
-                    o_next_module_reset <= next_module_reset;
 
-                    if ciphertext_block_cnt < to_unsigned(blocks_per_ciphertext - 1, ciphertext_block_cnt'length) then
-                         ciphertext_block_cnt <= ciphertext_block_cnt + to_unsigned(1, ciphertext_block_cnt'length);
-                    else
+                    if ciphertext_cnt = 0 and ciphertext_block_cnt = 0 then
+                         next_module_reset_chain(0) <= '0';
+                    end if;
+
+                    if ciphertext_block_cnt = 0 then
+                         ciphertext_block_cnt <= to_unsigned(blocks_per_ciphertext - 1, ciphertext_block_cnt'length);
                          -- new ciphertext starts
-                         ciphertext_block_cnt <= to_unsigned(0, ciphertext_block_cnt'length);
-
-                         if ciphertext_cnt < to_unsigned(ciphertexts_per_blind_rotation - 1, ciphertext_cnt'length) then
-                              ciphertext_cnt <= ciphertext_cnt + to_unsigned(1, ciphertext_cnt'length);
+                         if ciphertext_cnt = 0 then
+                              ciphertext_cnt <= to_unsigned(ciphertexts_per_blind_rotation - 1, ciphertext_cnt'length);
                          else
-                              ciphertext_cnt <= to_unsigned(0, ciphertext_cnt'length);
-                              next_module_reset <= '0';
+                              ciphertext_cnt <= ciphertext_cnt - to_unsigned(1, ciphertext_cnt'length);
                          end if;
+                    else
+                         ciphertext_block_cnt <= ciphertext_block_cnt - to_unsigned(1, ciphertext_block_cnt'length);
                     end if;
                end if;
 
                -- blind_rot_iter_input and blind_rot_iter_output change every clock tic
                -- because of high fanout trigger this early and use bufferchain
-               if ciphertext_cnt < to_unsigned(blind_rot_iter_num_ciphertexts_in_pipeline, ciphertext_cnt'length) then
+               if ciphertext_cnt > to_unsigned(ciphertexts_per_blind_rotation-blind_rot_iter_num_ciphertexts_in_pipeline-1, ciphertext_cnt'length) then
                     -- input-output phase
                     mode_change_bufferchain(0) <= '0';
                else
@@ -177,5 +182,31 @@ begin
 
           end if;
      end process;
+
+     out_buf: if buffer_blind_rot_output generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               blind_rot_iter_output <= blind_rot_iter_output_buf;
+          end if;
+          end process;
+     end generate;
+     no_out_buf: if not buffer_blind_rot_output generate
+          blind_rot_iter_output <= blind_rot_iter_output_buf;
+     end generate;
+
+     in_buf: if buffer_blind_rot_input generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               blind_rot_iter_input_buf <= blind_rot_iter_input;
+               blind_rot_iter_reset_buf <= blind_rot_iter_reset;
+          end if;
+          end process;
+     end generate;
+     no_in_buf: if not buffer_blind_rot_input generate
+          blind_rot_iter_input_buf <= blind_rot_iter_input;
+          blind_rot_iter_reset_buf <= blind_rot_iter_reset;
+     end generate;
 
 end architecture;

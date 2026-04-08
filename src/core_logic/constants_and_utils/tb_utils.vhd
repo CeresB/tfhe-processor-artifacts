@@ -85,9 +85,15 @@ package body tb_utils is
           ) return boolean is
           variable is_equal : boolean := true;
      begin
-          for i in 0 to polym'length - 1 loop
-               is_equal := is_equal and compare_synth_ints(polym(i), correct_polym(i));
-          end loop;
+          if use_partial_reduction then
+               for i in 0 to polym'length - 1 loop
+                    is_equal := is_equal and compare_synth_ints(polym(i) mod ntt_params.prime, correct_polym(i) mod ntt_params.prime);
+               end loop;
+          else
+               for i in 0 to polym'length - 1 loop
+                    is_equal := is_equal and compare_synth_ints(polym(i), correct_polym(i));
+               end loop;
+          end if;
           assert is_equal report "DUT did not pass " & case_name severity error;
           return is_equal;
      end function;
