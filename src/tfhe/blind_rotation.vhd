@@ -82,13 +82,13 @@ architecture Behavioral of blind_rotation is
      signal blind_rot_iter_output_buf : sub_polynom(0 to throughput - 1);
      signal blind_rot_iter_reset  : std_ulogic;
      signal blind_rot_iter_reset_buf  : std_ulogic;
-     signal next_module_reset_chain     : std_ulogic_vector(0 to 3+1-1); -- must be at least 1 in length
 
      type input_arr is array (natural range <>) of sub_polynom(0 to (blind_rot_iter_input'length) * boolean'pos(use_pbs_fake) - 1);
      signal fake_input_storage : input_arr(0 to (blind_rot_iter_latency - 1) * boolean'pos(use_pbs_fake) - 1);
 
      constant ciphertext_cnt_early_trigger : integer := 2*log2_pbs_throughput;
      signal mode_change_bufferchain : std_ulogic_vector(0 to ciphertext_cnt_early_trigger - 1);
+     signal next_module_reset_chain : std_ulogic_vector(0 to mode_change_bufferchain'length+2-1); -- +2 because mode_change takes 2 clk tics before it steers the outputs
 
 begin
 
@@ -119,9 +119,9 @@ begin
           begin
                if rising_edge(i_clk) then
                     if blind_rot_iter_reset_buf = '0' then
-                         fake_input_storage(0) <= blind_rot_iter_input;
+                         fake_input_storage(0) <= blind_rot_iter_input_buf;
                          fake_input_storage(1 to fake_input_storage'length - 1) <= fake_input_storage(0 to fake_input_storage'length - 2);
-                         blind_rot_iter_output <= fake_input_storage(fake_input_storage'length - 1);
+                         blind_rot_iter_output_buf <= fake_input_storage(fake_input_storage'length - 1);
                     end if;
                end if;
           end process;
@@ -142,7 +142,7 @@ begin
                     blind_rot_iter_reset <= '0';
                     -- output of this module has one delay so reset for next module also needs a delay
 
-                    if ciphertext_cnt = to_unsigned(1,ciphertext_cnt'length) and ciphertext_block_cnt=to_unsigned(next_module_reset_chain'length-1, ciphertext_block_cnt'length) then
+                    if ciphertext_cnt = 0 and ciphertext_block_cnt = 0 then
                          next_module_reset_chain(0) <= '0';
                     end if;
 
@@ -161,7 +161,7 @@ begin
 
                -- blind_rot_iter_input and blind_rot_iter_output change every clock tic
                -- because of high fanout trigger this early and use bufferchain
-               if ciphertext_cnt > to_unsigned(ciphertexts_per_blind_rotation-blind_rot_iter_num_ciphertexts_in_pipeline, ciphertext_cnt'length) then
+               if ciphertext_cnt > to_unsigned(ciphertexts_per_blind_rotation-blind_rot_iter_num_ciphertexts_in_pipeline-1, ciphertext_cnt'length) then
                     -- input-output phase
                     mode_change_bufferchain(0) <= '0';
                else

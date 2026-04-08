@@ -44,9 +44,11 @@ architecture Behavioral of shift_array is
      constant internal_num_stages: integer := sanitized_stage_num + 1*boolean'pos(sanitized_stage_num=log2_arr_len-1); -- if there is just one stage left, do it in a proper stage
 
      type wait_registers_sub_polym is array (natural range <>) of sub_polynom(0 to o_res'length - 1);
-     signal temp_shift_arr: wait_registers_sub_polym(0 to internal_num_stages+1-1); -- +1 for the end piece
      type wait_registers_shift_int is array (natural range <>) of unsigned(0 to i_shift'length-1);
-     signal shift_int: wait_registers_shift_int(0 to temp_shift_arr'length-1);
+     signal temp_shift_arr: wait_registers_sub_polym(0 to internal_num_stages+1-1); -- +1 for the end piece
+     signal shift_int: wait_registers_shift_int(0 to temp_shift_arr'length-1-1*boolean'pos(not (internal_num_stages < log2_arr_len)));
+     -- signal temp_shift_arr: wait_registers_sub_polym(0 to log2_arr_len+1-1);
+     -- signal shift_int: wait_registers_shift_int(0 to internal_num_stages-1*boolean'pos(not (internal_num_stages < log2_arr_len)));
 
 begin
 
@@ -60,18 +62,29 @@ begin
     end process;
 
     end_shift: if internal_num_stages < log2_arr_len generate
-        -- shift the rest in one cycle with many connections
+     -- shift the rest in one cycle with many connections
+
         process (i_clk) is
         begin
         if rising_edge(i_clk) then
             for i in 0 to i_arr'length - 1 loop
-                o_res(i) <= temp_shift_arr(temp_shift_arr'length-1)(to_integer(to_unsigned(i, shift_int(0)'length-num_stages) + shift_int(shift_int'length - 1)(num_stages to shift_int(0)'length-1)));
+                o_res(i) <= temp_shift_arr(temp_shift_arr'length-1)(to_integer(to_unsigned(i, shift_int(0)'length) + shift_int(shift_int'length - 1)(num_stages to shift_int(0)'length-1)));
             end loop;
         end if;
         end process;
+
+          -- shift_end: for stage_idx in internal_num_stages to temp_shift_arr'length-2 generate
+          --      temp_shift_arr(stage_idx+1) <= temp_shift_arr(stage_idx)(2**(log2_arr_len-1-stage_idx) to temp_shift_arr(0)'length-1) & temp_shift_arr(stage_idx)(0 to 2**(log2_arr_len-1-stage_idx)-1) when shift_int(shift_int'length-1)(stage_idx) = '1' else temp_shift_arr(stage_idx);
+          --      process (i_clk) is
+          --      begin
+          --           if rising_edge(i_clk) then
+          --           o_res <= temp_shift_arr(temp_shift_arr'length-1);
+          --           end if;
+          --      end process;
+          -- end generate;
     end generate;
     no_end_shift: if not (internal_num_stages < log2_arr_len) generate
-        o_res <= temp_shift_arr(temp_shift_arr'length-1);
+     o_res <= temp_shift_arr(temp_shift_arr'length-1);
     end generate;
 
      shift_stage: for stage_idx in 0 to internal_num_stages-1 generate
@@ -86,5 +99,6 @@ begin
         end if;
         end process;
      end generate;
+
 
 end architecture;

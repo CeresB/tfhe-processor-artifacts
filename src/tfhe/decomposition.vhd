@@ -117,28 +117,29 @@ begin
 
      red_modules: for i in 0 to result_buf'length - 1 generate
           -- the decomposed values must be reduced because they can be negative
-          process (i_clk) is
-          begin
-            if rising_edge(i_clk) then
-               if temp_result_buf(i)(0) = '1' then
-                    -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(-1,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i))) + tfhe_modulus;
-                    result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length)) + tfhe_modulus;
-               else
-                    -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(0,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i)));
-                    result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length));
+          partial: if use_partial_reduction generate
+               -- there cant be an overflow with the solinas prime, just always add
+               process (i_clk) is
+               begin
+                    if rising_edge(i_clk) then
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length)) + tfhe_modulus;
+                    end if;
+               end process;
+          end generate;
+          not_partial: if not use_partial_reduction generate
+               process (i_clk) is
+               begin
+               if rising_edge(i_clk) then
+                    if temp_result_buf(i)(0) = '1' then
+                         -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(-1,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i))) + tfhe_modulus;
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length)) + tfhe_modulus;
+                    else
+                         -- result_buf(i) <= unsigned(std_ulogic_vector(to_unsigned(0,result_buf(0)'length-temp_result_buf(0)'length)) & std_ulogic_vector(temp_result_buf(i)));
+                         result_buf(i) <= unsigned(resize(temp_result_buf(i),tfhe_modulus'length));
+                    end if;
                end if;
-            end if;
-          end process;
-          -- easy_red_module: easy_reduction
-          --      generic map (
-          --           modulus         => tfhe_modulus,
-          --           can_be_negative => true
-          --      )
-          --      port map (
-          --           i_clk     => i_clk,
-          --           i_num     => signed_to_synth_int_extended(signed(temp_result_buf(i))),
-          --           o_mod_res => result_buf(i)
-          --      );
+               end process;
+          end generate;
      end generate;
 
 end architecture;

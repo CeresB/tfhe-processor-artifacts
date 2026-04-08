@@ -51,67 +51,82 @@ architecture Behavioral of one_time_counter is
 
 begin
 
-     o_tripped <= out_bufferchain(out_bufferchain'length - 1);
+     trouble: if tripping_value < 0 generate
+          assert false report "Counter has negative tripping value - cannot be correct!" severity error;
+     end generate;
 
-     counter_present: if bufferchain_length < tripping_value generate
-          no_out_bufferchain_logic: if not (bufferchain_length > 0) generate
-               out_bufferchain(out_bufferchain'length - 1) <= out_bufferchain_input;
+     no_delay: if tripping_value = 0 generate
+          not_negated: if not out_negated generate
+               o_tripped <= not i_reset;
           end generate;
-          out_bufferchain_logic: if bufferchain_length > 0 generate
+          negated: if out_negated generate
+               o_tripped <= i_reset;
+          end generate;
+     end generate;
+     
+     with_delay: if not (tripping_value = 0) generate
+          o_tripped <= out_bufferchain(out_bufferchain'length - 1);
+
+          counter_present: if bufferchain_length < tripping_value generate
+               no_out_bufferchain_logic: if not (bufferchain_length > 0) generate
+                    out_bufferchain(out_bufferchain'length - 1) <= out_bufferchain_input;
+               end generate;
+               out_bufferchain_logic: if bufferchain_length > 0 generate
+                    process (i_clk) is
+                    begin
+                         if rising_edge(i_clk) then
+                              out_bufferchain(0) <= out_bufferchain_input;
+                              out_bufferchain(1 to out_bufferchain'length - 1) <= out_bufferchain(0 to out_bufferchain'length - 2);
+                         end if;
+                    end process;
+               end generate;
+
+               use_ctn: if internal_tripping_value > 0 generate
+                    process (i_clk)
+                    begin
+                         if rising_edge(i_clk) then
+                              if i_reset = '1' then
+                                   clk_cnt <= internal_tripping_value_unsigned;
+                                   out_bufferchain_input <= not triggered_val(0);
+                              else
+                                   if clk_cnt(0) = '1' then
+                                        out_bufferchain_input <= triggered_val(0);
+                                   else
+                                        clk_cnt <= clk_cnt - to_unsigned(1, clk_cnt'length);
+                                   end if;
+                              end if;
+                         end if;
+                    end process;
+               end generate;
+
+               no_ctn: if not (internal_tripping_value > 0) generate
+                    process (i_clk) is
+                    begin
+                         if rising_edge(i_clk) then
+                              if i_reset = '1' then
+                                   out_bufferchain_input <= not triggered_val(0);
+                              else
+                                   out_bufferchain_input <= triggered_val(0);
+                              end if;
+                         end if;
+                    end process;
+               end generate;
+
+          end generate;
+
+          no_counter_present: if not (bufferchain_length < tripping_value) generate
                process (i_clk) is
                begin
                     if rising_edge(i_clk) then
-                         out_bufferchain(0) <= out_bufferchain_input;
+                         if i_reset = '1' then
+                              out_bufferchain(0) <= not triggered_val(0);
+                         else
+                              out_bufferchain(0) <= triggered_val(0);
+                         end if;
                          out_bufferchain(1 to out_bufferchain'length - 1) <= out_bufferchain(0 to out_bufferchain'length - 2);
                     end if;
                end process;
           end generate;
-
-          use_ctn: if internal_tripping_value > 0 generate
-               process (i_clk)
-               begin
-                    if rising_edge(i_clk) then
-                         if i_reset = '1' then
-                              clk_cnt <= internal_tripping_value_unsigned;
-                              out_bufferchain_input <= not triggered_val(0);
-                         else
-                              if clk_cnt(0) = '1' then
-                                   out_bufferchain_input <= triggered_val(0);
-                              else
-                                   clk_cnt <= clk_cnt - to_unsigned(1, clk_cnt'length);
-                              end if;
-                         end if;
-                    end if;
-               end process;
-          end generate;
-
-          no_ctn: if not (internal_tripping_value > 0) generate
-               process (i_clk) is
-               begin
-                    if rising_edge(i_clk) then
-                         if i_reset = '1' then
-                              out_bufferchain_input <= not triggered_val(0);
-                         else
-                              out_bufferchain_input <= triggered_val(0);
-                         end if;
-                    end if;
-               end process;
-          end generate;
-
      end generate;
-
-     no_counter_present: if not (bufferchain_length < tripping_value) generate
-          process (i_clk) is
-          begin
-               if rising_edge(i_clk) then
-                    if i_reset = '1' then
-                         out_bufferchain(0) <= not triggered_val(0);
-                    else
-                         out_bufferchain(0) <= triggered_val(0);
-                    end if;
-                    out_bufferchain(1 to out_bufferchain'length - 1) <= out_bufferchain(0 to out_bufferchain'length - 2);
-               end if;
-          end process;
-     end generate;
-
+     
 end architecture;

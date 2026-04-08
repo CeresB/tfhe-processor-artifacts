@@ -62,8 +62,8 @@ architecture Behavioral of karazuba_mult_dsp_level is
      signal a1_buf : half_rest_reg;
      signal b0_buf : half_reg;
      signal b1_buf : half_rest_reg;
-     signal b0_buf2     : half_reg;
-     signal b1_buf2     : half_rest_reg;
+     -- signal b0_buf2     : half_reg;
+     -- signal b1_buf2     : half_rest_reg;
      signal a0_buf2     : half_reg;
      signal a1_buf2     : half_rest_reg;
      signal b0_buf21     : half_reg;
@@ -171,14 +171,15 @@ begin
 
                -- stage 1
                a1_plus_a0_buf <= a1_plus_a0;
-               b1_buf2 <= b1_buf;
-               b0_buf2 <= b0_buf;
+               -- b1_buf2 <= b1_buf;
+               -- b0_buf2 <= b0_buf;
 
                -- stage 2
                p2_wait_regs(0) <= a0_buf2 * b0_buf21;
                p1_wait_regs(0) <= a1_buf2 * b1_buf21;
                a1_plus_a0_buf2 <= a1_plus_a0_buf;
-               b1_plus_b0 <= ('0' & b1_buf2) + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend one operand for the carry bit
+               -- b1_plus_b0 <= ('0' & b1_buf2) + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend one operand for the carry bit
+               b1_plus_b0 <= ('0' & b1_buf21) + b0_buf21; -- should be done in p3-dsp-pre-adder. Extend one operand for the carry bit
 
                -- stage 3
                p3_wait_regs(0) <= a1_plus_a0_buf2 * b1_plus_b0;

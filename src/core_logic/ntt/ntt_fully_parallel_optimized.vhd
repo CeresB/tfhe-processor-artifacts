@@ -81,7 +81,11 @@ begin
      end generate;
 
      flow_chain: if not invers generate
-          stage_inputs <= i_polym & stage_outputs_buffer(0 to stage_outputs_buffer'length - 2);
+          stage_inputs(0) <= i_polym;
+          stage_map: for i in 1 to stage_inputs'length-1 generate
+               stage_inputs(i) <= stage_outputs_buffer(i-1);
+          end generate;
+          -- stage_inputs <= i_polym & stage_outputs_buffer(0 to stage_outputs_buffer'length - 2);
           -- the output is the input of the next stage
           o_result <= stage_outputs_buffer(stage_outputs_buffer'length - 1);
      end generate;
@@ -89,7 +93,11 @@ begin
      flow_chain_invers: if invers generate
           -- we reverse the stage order for the intt, so that we can reuse the twiddle-table and other logic from the normal ntt
           -- the output is the input of the next stage
-          stage_inputs <= stage_outputs_buffer(1 to stage_outputs_buffer'length - 1) & i_polym;
+          stage_inputs(stage_inputs'length-1) <= i_polym;
+          stage_map: for i in 0 to stage_inputs'length-2 generate
+               stage_inputs(i) <= stage_outputs_buffer(i+1);
+          end generate;
+          -- stage_inputs <= stage_outputs_buffer(1 to stage_outputs_buffer'length - 1) & i_polym;
           o_result <= stage_outputs_buffer(0);
      end generate;
 

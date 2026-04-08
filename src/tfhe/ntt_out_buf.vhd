@@ -84,7 +84,7 @@ architecture Behavioral of ntt_out_buf is
      constant ram_size           : integer := 2 * ping_buffer_length;
      --constant num_ram_blocks     : integer := polyms_per_ciphertext * i_result_ntt'length;
 
-     signal internal_reset_chain : std_ulogic_vector(0 to ntt_out_buf_reset_buf_len-1*boolean'pos(not use_ntt_out_buf_input_buffer)-1);
+     signal internal_reset_chain : std_ulogic_vector(0 to ntt_out_buf_reset_buf_len-1-1*boolean'pos(not use_ntt_out_buf_input_buffer)-1); -- -1 because 1 clk tic to compute full address
      signal internal_reset : std_ulogic;
      signal input_buf      : sub_polynom(0 to i_result_ntt'length - 1);
 
@@ -171,7 +171,7 @@ begin
                          i_wr_data => input_buf(L_coeff_idx),
                          i_wr_addr => ram_wr_addr_full_all,
                          i_rd_addr => ram_rd_addr_full_all,
-                         o_data    => o_result(polyms_per_ciphertext * L_coeff_idx + k_idx)
+                         o_data    => o_result(L_coeff_idx + k_idx*throughput*num_ntts)
                     );
           end generate;
      end generate;

@@ -115,10 +115,7 @@ architecture Behavioral of mult_x_ai_minus_1_plus_acc is
      signal acc_old_minus_acc_part                 : sub_polynom(0 to throughput - 1);
      signal acc_old_minus_acc_part_buffer_old_part : sub_polynom(0 to throughput - 1);
      
-     type buffer_cnt_buf is array (natural range <>) of unsigned(0 to get_bit_length(acc_old_minus_acc_part_buffer_length - 1) - 1);
      signal buffer_cnt : unsigned(0 to get_bit_length(acc_old_minus_acc_part_buffer_length - 1)-1) := to_unsigned(0, get_bit_length(acc_old_minus_acc_part_buffer_length - 1));
-     signal buffer_cnt_chain : buffer_cnt_buf(0 to counter_buffer_len-2); -- -2 since chain_end handled separately
-     signal buffer_cnt_chain_end : unsigned(0 to buffer_cnt'length-1);
 
      signal latency_cnt_reset : std_ulogic;
      
@@ -224,18 +221,6 @@ begin
                end if;
           end if;
      end process;
-     do_buffer_cnt_chain: if buffer_cnt_chain 'length > 0 generate
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    buffer_cnt_chain <= buffer_cnt & buffer_cnt_chain(0 to buffer_cnt_chain'length - 2);
-               end if;
-          end process;
-          buffer_cnt_chain_end <= buffer_cnt_chain(buffer_cnt_chain'length-1);
-     end generate;
-     no_buffer_cnt_chain: if not (buffer_cnt_chain'length > 0) generate
-          buffer_cnt_chain_end <= buffer_cnt;
-     end generate;
 
      brams_per_coeff: for coeff_idx in 0 to acc_old_minus_acc_part'length - 1 generate
           ram_elem: manual_bram
@@ -250,8 +235,8 @@ begin
                     i_clk     => i_clk,
                     i_wr_en   => '1',
                     i_wr_data => acc_old_minus_acc_part(coeff_idx),
-                    i_wr_addr => buffer_cnt_chain_end,
-                    i_rd_addr => buffer_cnt_chain_end,
+                    i_wr_addr => buffer_cnt,
+                    i_rd_addr => buffer_cnt,
                     o_data    => acc_old_minus_acc_part_buffer_old_part(coeff_idx)
                );
      end generate;

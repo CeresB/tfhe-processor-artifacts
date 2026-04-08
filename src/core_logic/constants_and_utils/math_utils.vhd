@@ -91,7 +91,7 @@ package body math_utils is
           -- for i in synthesiseable_uint'length - 1 downto 0 loop
           for i in 0 to synthesiseable_uint'length - 1 loop
                if num(i) = '1' then
-                    bit_length := i;
+                    bit_length := synthesiseable_uint'length - i;
                     exit;
                end if;
           end loop;

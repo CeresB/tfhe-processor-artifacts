@@ -62,7 +62,7 @@ architecture Behavioral of karazuba_mult_dsp_level_p3 is
      signal a1_buf : half_rest_reg;
      signal b0_buf : half_reg;
      signal b1_buf : half_rest_reg;
-     signal b0_buf2     : half_reg;
+     -- signal b0_buf2     : half_reg;
      -- signal b1_buf2     : half_rest_reg;
      signal a0_buf2     : half_reg;
      signal a1_buf2     : half_rest_reg;
@@ -186,7 +186,7 @@ begin
                p1_wait_regs(0) <= a1_buf2 * b1_buf21;
                a1_plus_a0_buf <= a1_plus_a0; -- inside dsp
                b1_buf2_wo_msb <= b1_buf_wo_msb; -- inside dsp
-               b0_buf2 <= b0_buf; -- inside dsp
+               -- b0_buf2 <= b0_buf; -- inside dsp
                -- b1_buf2 <= b1_buf;
                if b1_msb = '1' then
                     a1_plus_a0_wait_buf_2 <= a1_plus_a0;
@@ -196,7 +196,8 @@ begin
 
                -- stage 2
                a1_plus_a0_buf2 <= a1_plus_a0_buf; -- inside dsp
-               b1_plus_b0 <= b1_buf2_wo_msb + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend for the carry bit is in b1_buf2_wo_msb
+               -- b1_plus_b0 <= b1_buf2_wo_msb + b0_buf2; -- should be done in p3-dsp-pre-adder. Extend for the carry bit is in b1_buf2_wo_msb
+               b1_plus_b0 <= b1_buf2_wo_msb + b0_buf21; -- should be done in p3-dsp-pre-adder. Extend for the carry bit is in b1_buf2_wo_msb
                a1_plus_a0_wait_buf_3 <= a1_plus_a0_wait_buf_2;
 
                -- stage 3

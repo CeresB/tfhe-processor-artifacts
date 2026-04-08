@@ -81,10 +81,10 @@ architecture Behavioral of ntt_tb is
      signal intt_result_buffer_polym       : polynom;
      signal result_ntt_tb                  : polynom; -- v4p ignore w-303
      signal result_intt_tb                 : polynom; -- v4p ignore w-303
-     signal ntt_firstoutput_not_ready      : std_ulogic_vector(0 to counter_buffer_len+ntt_cnts_early_reset - 1);
+     signal ntt_firstoutput_not_ready      : std_ulogic_vector(0 to 1+ntt_cnts_early_reset - 1);
      signal ntt_new_complete_output_ready  : std_ulogic := '0';
      signal intt_new_complete_output_ready : std_ulogic := '0';
-     signal intt_firstoutput_not_ready     : std_ulogic_vector(0 to counter_buffer_len+ntt_cnts_early_reset - 1);
+     signal intt_firstoutput_not_ready     : std_ulogic_vector(0 to 1+ntt_cnts_early_reset - 1);
      signal finished                       : std_ulogic := '0';
 
      signal zero_polym           : polynom;
@@ -126,6 +126,8 @@ architecture Behavioral of ntt_tb is
      -- constant test_sequential_stage_clks_till_first_butterfly_result                 : integer := sequential_stage_clks_till_first_butterfly_result;
      constant test_ntt_delay : integer := get_ntt_latency(ntt_params.log2_num_coeffs, log2_throughput, ntt_params.negacyclic, false, true, false); -- v4p ignore w-303
      -- constant test_overflow_reduced_num: unsigned(0 to overflow_reduced_num'length-1) := overflow_reduced_num;
+     -- constant test_overflow_bit_width: integer := overflow_bit_width;
+     -- constant test_overflow_reduced: synthesiseable_uint_extended := overflow_reduced;
 
 begin
      clk <= not clk after TIME_DELTA when finished /= '1' else '0';

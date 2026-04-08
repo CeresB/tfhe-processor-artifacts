@@ -181,24 +181,16 @@ architecture Behavioral of blind_rotation_iteration is
 
      constant extra_latency_buffer_ram_possible : boolean := (blind_rot_iter_extra_latency > (extra_latency_ram_retiming_latency + 1));
      constant extra_latency_buffer_length       : integer := get_max(1, blind_rot_iter_extra_latency - boolean'pos(extra_latency_buffer_ram_possible) * (extra_latency_ram_retiming_latency));
-     signal extra_latency_reset_buffer          : std_ulogic_vector(0 to get_max(1, blind_rot_iter_extra_latency) - 1);
-     signal extra_latency_reset_buffer_end_part : std_ulogic;
      signal extra_latency_buffer_end_part       : sub_polynom(0 to throughput - 1);
      signal extra_latency_buffer                : sub_polyms_size_throughput(0 to boolean'pos(not extra_latency_buffer_ram_possible) * extra_latency_buffer_length - 1);
 
-     type extra_latency_cnt_buf is array (natural range <>) of unsigned(0 to get_bit_length(extra_latency_buffer_length) - 1);
      signal extra_latency_buffer_cnt : unsigned(0 to get_bit_length(extra_latency_buffer_length) - 1) := to_unsigned(0, get_bit_length(extra_latency_buffer_length)); -- this module needs an early reset for this to work
-     signal extra_latency_buffer_cnt_buf_chain : extra_latency_cnt_buf(0 to counter_buffer_len - 2); -- -2 since chain_end handled separately
-     signal extra_latency_buffer_cnt_buf_chain_end : unsigned(0 to extra_latency_buffer_cnt'length-1);
 
      -- we need an enormous buffer so that the old accumulator can be added at the end for the bootstrapping
      -- there is no other way since we work pipelined and do not want to strain the memory for this
      signal acc_old_part : sub_polynom(0 to throughput - 1);
 
-     type acc_in_buffer_cnt_buf is array (natural range <>) of unsigned(0 to get_bit_length(acc_buffer_length) - 1);
      signal acc_in_buffer_cnt : unsigned(0 to get_bit_length(acc_buffer_length) - 1) := to_unsigned(0, get_bit_length(acc_buffer_length));
-     signal acc_in_buffer_cnt_buf_chain : acc_in_buffer_cnt_buf(0 to counter_buffer_len - 2); -- -2 since chain_end handled separately
-     signal acc_in_buffer_cnt_buf_chain_end : unsigned(0 to acc_in_buffer_cnt'length-1);
 
      -- decompose related signals
      signal decompose_output_line_format : synth_uint_vector(0 to throughput * decomposition_length - 1);
@@ -258,13 +250,13 @@ begin
      ntts: for L_idx in 0 to num_ntts - 1 generate
           initial_latency_counter: one_time_counter
                generic map (
-                    tripping_value     => initial_decomp_delay_first_block - ntt_num_clks_reset_early,
+                    tripping_value     => blind_rot_iter_extra_latency + initial_decomp_delay_first_block - ntt_num_clks_reset_early,
                     out_negated        => true,
-                    bufferchain_length => trailing_reset_buffer_len + (counter_buffer_len - 1)
+                    bufferchain_length => trailing_reset_buffer_len
                )
                port map (
                     i_clk     => i_clk,
-                    i_reset   => extra_latency_reset_buffer_end_part,
+                    i_reset   => i_reset,
                     o_tripped => decomp_not_ready(L_idx)
                );
           d_ntt: ntt
@@ -292,7 +284,7 @@ begin
 
      ntt_out_buf_reset_crtl: one_time_counter
           generic map (
-               tripping_value     => ntt_latency + ntt_twiddle_rams_retiming_latency - 1-ntt_out_buf_reset_buf_len, -- -1 since ntt_out_buf needs one tic to compute the addresses
+               tripping_value     => ntt_latency + ntt_twiddle_rams_retiming_latency + ntt_num_clks_reset_early - 1-ntt_out_buf_reset_buf_len, -- -1 since ntt_out_buf needs one tic to compute the addresses
                out_negated        => true,
                bufferchain_length => trailing_reset_buffer_len
           )
@@ -432,8 +424,6 @@ begin
           );
 
      -- extra latency-buffer logic
-     extra_latency_reset_buffer_end_part <= extra_latency_reset_buffer(extra_latency_reset_buffer'length - 1);
-
      extra_latency_no_buffer_present: if not extra_latency_buffer_ram_possible generate
           -- not enough headroom for using ram
           extra_latency_out_mapping: for i in 0 to extra_latency_buffer_end_part'length - 1 generate
@@ -442,14 +432,12 @@ begin
 
           no_logic: if blind_rot_iter_extra_latency = 0 generate
                extra_latency_buffer(0)       <= i_acc_part;
-               extra_latency_reset_buffer(0) <= i_reset;
           end generate;
           basic_buf_logic: if blind_rot_iter_extra_latency = 1 generate
                process (i_clk)
                begin
                     if rising_edge(i_clk) then
                          extra_latency_buffer(0) <= i_acc_part;
-                         extra_latency_reset_buffer(0) <= i_reset;
                     end if;
                end process;
           end generate;
@@ -457,10 +445,7 @@ begin
                process (i_clk)
                begin
                     if rising_edge(i_clk) then
-                         extra_latency_buffer(0) <= i_acc_part;
-                         extra_latency_buffer(1 to extra_latency_buffer'length - 1) <= extra_latency_buffer(0 to extra_latency_buffer'length - 2);
-                         extra_latency_reset_buffer(1 to extra_latency_reset_buffer'length - 1) <= extra_latency_reset_buffer(0 to extra_latency_reset_buffer'length - 2);
-                         extra_latency_reset_buffer(0) <= i_reset;
+                         extra_latency_buffer <= i_acc_part & extra_latency_buffer(0 to extra_latency_buffer'length - 2);
                     end if;
                end process;
           end generate;
@@ -480,20 +465,11 @@ begin
                          i_clk     => i_clk,
                          i_wr_en   => '1',
                          i_wr_data => i_acc_part(coeff_idx),
-                         i_wr_addr => extra_latency_buffer_cnt_buf_chain_end,
-                         i_rd_addr => extra_latency_buffer_cnt_buf_chain_end,
+                         i_wr_addr => extra_latency_buffer_cnt,
+                         i_rd_addr => extra_latency_buffer_cnt,
                          o_data    => extra_latency_buffer_end_part(coeff_idx)
                     );
           end generate;
-
-          -- the reset buffer is so insignificant that we make it rolling anyway
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    extra_latency_reset_buffer(1 to extra_latency_reset_buffer'length - 1) <= extra_latency_reset_buffer(0 to extra_latency_reset_buffer'length - 2);
-                    extra_latency_reset_buffer(0) <= i_reset;
-               end if;
-          end process;
 
           process (i_clk)
           begin
@@ -505,19 +481,6 @@ begin
                     end if;
                end if;
           end process;
-          do_extra_latency_buffer_cnt_buf_chain: if extra_latency_buffer_cnt_buf_chain'length > 0 generate
-               process (i_clk)
-               begin
-                    if rising_edge(i_clk) then
-                         extra_latency_buffer_cnt_buf_chain(0) <= extra_latency_buffer_cnt;
-                         extra_latency_buffer_cnt_buf_chain(1 to extra_latency_buffer_cnt_buf_chain'length-1) <= extra_latency_buffer_cnt_buf_chain(0 to extra_latency_buffer_cnt_buf_chain'length-2);
-                    end if;
-               end process;
-               extra_latency_buffer_cnt_buf_chain_end <= extra_latency_buffer_cnt_buf_chain(extra_latency_buffer_cnt_buf_chain'length-1);
-          end generate;
-          no_extra_latency_buffer_cnt_buf_chain: if not (extra_latency_buffer_cnt_buf_chain'length > 0) generate
-               extra_latency_buffer_cnt_buf_chain_end <= extra_latency_buffer_cnt;
-          end generate;
      end generate;
 
      -- acc buffer logic
@@ -534,8 +497,8 @@ begin
                     i_clk     => i_clk,
                     i_wr_en   => '1',
                     i_wr_data => extra_latency_buffer_end_part(coeff_idx),
-                    i_wr_addr => acc_in_buffer_cnt_buf_chain_end,
-                    i_rd_addr => acc_in_buffer_cnt_buf_chain_end,
+                    i_wr_addr => acc_in_buffer_cnt,
+                    i_rd_addr => acc_in_buffer_cnt,
                     o_data    => acc_old_part(coeff_idx)
                );
      end generate;
@@ -550,18 +513,5 @@ begin
                end if;
           end if;
      end process;
-     do_acc_in_buffer_cnt_buf_chain: if acc_in_buffer_cnt_buf_chain 'length > 0 generate
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    acc_in_buffer_cnt_buf_chain(0) <= acc_in_buffer_cnt;
-                    acc_in_buffer_cnt_buf_chain(1 to acc_in_buffer_cnt_buf_chain'length - 1) <= acc_in_buffer_cnt_buf_chain(0 to acc_in_buffer_cnt_buf_chain'length - 2);
-               end if;
-          end process;
-          acc_in_buffer_cnt_buf_chain_end <= acc_in_buffer_cnt_buf_chain(acc_in_buffer_cnt_buf_chain'length-1);
-     end generate;
-     no_acc_in_buffer_cnt_buf_chain: if not (acc_in_buffer_cnt_buf_chain'length > 0) generate
-          acc_in_buffer_cnt_buf_chain_end <= acc_in_buffer_cnt;
-     end generate;
 
 end architecture;

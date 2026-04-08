@@ -107,7 +107,7 @@ architecture Behavioral of ntt_fully_parallel_stage_base is
 
      type tw_row_cnts is array (natural range <>) of unsigned(0 to get_bit_length(tws_per_bf - 1) - 1);
      type tw_cnts_buf is array (natural range <>) of tw_row_cnts(0 to num_stages_fully_parallel - 1);
-     signal input_twiddle_cnts : tw_cnts_buf(0 to counter_buffer_len - 1);
+     signal input_twiddle_cnts : tw_row_cnts(0 to num_stages_fully_parallel - 1);
 
 begin
 
@@ -140,21 +140,14 @@ begin
           fp_substage_internal_resets <= fp_substage_resets;
      end generate;
 
-     process (i_clk) is
-     begin
-       if rising_edge(i_clk) then
-               input_twiddle_cnts(1 to input_twiddle_cnts'length - 1) <= input_twiddle_cnts(0 to input_twiddle_cnts'length - 2);
-       end if;
-     end process;
-
-     stage_tw_rams: for sub_stage_idx in 0 to input_twiddle_cnts(0)'length - 1 generate
+     stage_tw_rams: for sub_stage_idx in 0 to input_twiddle_cnts'length - 1 generate
           process (i_clk)
           begin
                if rising_edge(i_clk) then
                     if fp_substage_internal_resets(boolean'pos(not invers) * (sub_stage_idx) + boolean'pos(invers) * (num_stages_fully_parallel - 1 - sub_stage_idx)) = '1' then
-                         input_twiddle_cnts(0)(sub_stage_idx) <= to_unsigned(0, input_twiddle_cnts(0)(0)'length);
+                         input_twiddle_cnts(sub_stage_idx) <= to_unsigned(0, input_twiddle_cnts(0)'length);
                     else
-                         input_twiddle_cnts(0)(sub_stage_idx) <= input_twiddle_cnts(0)(sub_stage_idx) + to_unsigned(1, input_twiddle_cnts(0)(0)'length);
+                         input_twiddle_cnts(sub_stage_idx) <= input_twiddle_cnts(sub_stage_idx) + to_unsigned(1, input_twiddle_cnts(0)'length);
                     end if;
                end if;
           end process;
@@ -163,13 +156,13 @@ begin
                tw_ram: manual_constant_bram
                     generic map (
                          ram_content         => twiddles_to_use(sub_stage_idx * total_num_tws_per_stage + butterfly_idx * tws_per_bf to sub_stage_idx * total_num_tws_per_stage + (butterfly_idx + 1) * tws_per_bf - 1),
-                         addr_length         => input_twiddle_cnts(0)(0)'length,
+                         addr_length         => input_twiddle_cnts(0)'length,
                          ram_out_bufs_length => ntt_twiddle_rams_retiming_latency+ntt_twiddle_rams_fp_stage_additional_retiming_latency,
                          ram_type            => twiddle_ram_type
                     )
                     port map (
                          i_clk     => i_clk,
-                         i_rd_addr => input_twiddle_cnts(input_twiddle_cnts'length - 1)(sub_stage_idx),
+                         i_rd_addr => input_twiddle_cnts(sub_stage_idx),
                          o_data    => fully_parallel_ntt_twiddles(sub_stage_idx * bf_block_num_butterflys + butterfly_idx)
                     );
           end generate;

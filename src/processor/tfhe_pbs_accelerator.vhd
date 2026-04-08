@@ -34,7 +34,6 @@ entity tfhe_pbs_accelerator is
     i_reset_n           : in  std_ulogic;
     i_ram_coeff_idx     : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
     -- o_return_address    : out hbm_ps_port_memory_address;
-    o_out_valid         : out std_ulogic;
     o_out_data          : out sub_polynom(0 to pbs_throughput - 1);
     o_next_module_reset : out std_ulogic;
     -- hbm related in / out signals
@@ -56,10 +55,10 @@ architecture Behavioral of tfhe_pbs_accelerator is
   component pbs_lut_buffer is
     port (
       i_clk                  : in  std_ulogic;
-      i_new_batch            : in  std_ulogic;
+      i_init            : in  std_ulogic;
       i_lut_start_addr       : in  hbm_ps_port_memory_address;
+      i_lut_addr_valid       : in  std_ulogic;
       i_reset_n              : in  std_ulogic;
-      i_pbs_reset            : in  std_ulogic; -- it takes ram_retiming_latency until values can follow after pbs_reset drops
       i_hbm_read_out         : in  hbm_ps_out_read_pkg;
       o_hbm_read_in          : out hbm_ps_in_read_pkg;
       o_lut_part             : out sub_polynom(0 to pbs_throughput - 1);
@@ -76,11 +75,11 @@ architecture Behavioral of tfhe_pbs_accelerator is
       o_lut_start_addr       : out hbm_ps_port_memory_address;
       o_b_addr               : out hbm_ps_port_memory_address;
       o_a_addr               : out hbm_ps_port_memory_address;
-      o_a_addr_valid         : out std_ulogic;
+      o_addr_valid         : out std_ulogic;
       -- o_return_address       : out hbm_ps_port_memory_address;
       -- o_return_address_valid          : out std_ulogic;
       -- o_sample_extract_idx   : out idx_int;
-      o_new_batch            : out std_ulogic;
+      o_init          : out std_ulogic;
       o_hbm_read_in          : out hbm_ps_in_read_pkg
     );
   end component;
@@ -112,10 +111,10 @@ architecture Behavioral of tfhe_pbs_accelerator is
   component pbs_b_buffer is
     port (
       i_clk             : in  std_ulogic;
-      i_new_batch       : in  std_ulogic;
+      i_init       : in  std_ulogic;
       i_lwe_addr        : in  hbm_ps_port_memory_address;
+      i_lwe_addr_valid  : in  std_ulogic;
       i_reset_n         : in  std_ulogic;
-      i_pbs_reset       : in  std_ulogic; -- it takes ram_retiming_latency until values can follow after pbs_reset drops
       i_hbm_read_out    : in  hbm_ps_out_read_pkg;
       o_hbm_read_in     : out hbm_ps_in_read_pkg;
       o_b               : out rotate_idx;
@@ -158,7 +157,6 @@ architecture Behavioral of tfhe_pbs_accelerator is
       i_reset              : in  std_ulogic;
 
       o_coeffs             : out sub_polynom(0 to pbs_throughput - 1);
-      o_coeffs_valid       : out std_ulogic;
       o_next_module_reset  : out std_ulogic
     );
   end component;
@@ -166,7 +164,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
   -- op buffer signals
   signal current_lut_start_addr       : hbm_ps_port_memory_address;
   -- signal current_sample_extract_idx   : idx_int;
-  signal new_pbs_batch                : std_ulogic;
+  signal init_iteration                : std_ulogic;
 
   -- pbs signals
   signal pbs_output_not_ready         : std_logic;
@@ -187,7 +185,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
   signal b_storage_ready    : std_ulogic;
 
   signal a_addr       : hbm_ps_port_memory_address;
-  signal a_addr_valid : std_ulogic;
+  signal all_addrs_valid : std_ulogic;
   signal b_addr       : hbm_ps_port_memory_address;
 
   signal reset_n_delayed : std_ulogic;
@@ -225,10 +223,10 @@ begin
       o_lut_start_addr       => current_lut_start_addr,
       o_b_addr               => b_addr,
       o_a_addr               => a_addr,
-      o_a_addr_valid         => a_addr_valid,
+      o_addr_valid         => all_addrs_valid,
       -- o_return_address       => o_return_address,
       -- o_sample_extract_idx   => current_sample_extract_idx,
-      o_new_batch            => new_pbs_batch
+      o_init            => init_iteration
     );
 
   bski_pbs_pingpongbuffer_inst: bski_pbs_pingpongbuffer
@@ -246,7 +244,7 @@ begin
     port map (
       i_clk                    => i_clk,
       i_lwe_addr               => a_addr,
-      i_lwe_addr_valid         => a_addr_valid,
+      i_lwe_addr_valid         => all_addrs_valid,
       i_reset_n                => reset_n_delayed,
       i_pbs_reset              => pbs_reset_delayed,
       i_hbm_ps_in_read_out_pkg => i_ai_hbm_out,
@@ -258,10 +256,10 @@ begin
   lut_buffer_inst: pbs_lut_buffer
     port map (
       i_clk                  => i_clk,
-      i_new_batch            => new_pbs_batch,
+      i_init            => init_iteration,
       i_lut_start_addr       => current_lut_start_addr,
       i_reset_n              => reset_n_delayed,
-      i_pbs_reset            => pbs_reset_delayed,
+      i_lut_addr_valid       => all_addrs_valid,
       i_hbm_read_out         => i_lut_hbm_out,
       o_hbm_read_in          => o_lut_hbm_in,
       o_lut_part             => pbs_lut_part,
@@ -273,10 +271,10 @@ begin
   b_buffer_inst: pbs_b_buffer
     port map (
       i_clk             => i_clk,
-      i_new_batch       => new_pbs_batch,
+      i_init       => init_iteration,
       i_lwe_addr        => b_addr,
+      i_lwe_addr_valid => all_addrs_valid,
       i_reset_n         => reset_n_delayed,
-      i_pbs_reset       => pbs_reset_delayed,
       i_hbm_read_out    => i_b_hbm_out,
       o_hbm_read_in     => o_b_hbm_in,
       o_b               => pbs_lwe_b,
@@ -314,7 +312,6 @@ begin
       i_ram_coeff_idx      => i_ram_coeff_idx,
       i_reset              => pbs_output_not_ready,
       o_coeffs             => o_out_data,
-      o_coeffs_valid       => o_out_valid,
       o_next_module_reset  => o_next_module_reset
     );
 

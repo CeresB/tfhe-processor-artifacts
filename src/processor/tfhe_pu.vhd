@@ -1259,7 +1259,6 @@ end entity;
 architecture rtl of tfhe_pu is
 
   signal lwe_n_buf_out              : sub_polynom(0 to pbs_throughput - 1);
-  signal lwe_n_buf_out_valid        : std_ulogic;
   signal lwe_n_buf_write_next_reset : std_ulogic;
   signal lwe_n_buf_rq_idx           : unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
 
@@ -1401,7 +1400,6 @@ begin
       i_op_hbm_out        => intermediate_hbm_read_out_pkgs_stack_1(channel_op_idx),
       i_lut_hbm_out       => intermediate_hbm_read_out_pkgs_stack_1(channel_lut_idx),
       i_b_hbm_out         => intermediate_hbm_read_out_pkgs_stack_1(channel_b_idx),
-      o_out_valid         => lwe_n_buf_out_valid,
       o_out_data          => lwe_n_buf_out,
       o_next_module_reset => lwe_n_buf_write_next_reset,
       o_ai_hbm_in         => ai_hbm_in,
@@ -1415,7 +1413,6 @@ begin
     port map (
       i_clk           => TFHE_CLK,
       i_coeffs        => lwe_n_buf_out,
-      i_coeffs_valid  => lwe_n_buf_out_valid,
       i_reset         => lwe_n_buf_write_next_reset,
       i_hbm_write_out => intermediate_hbm_write_out_pkgs_stack_1(channel_result_idx),
       o_hbm_write_in  => intermediate_hbm_write_in_pkgs_stack_1(channel_result_idx),

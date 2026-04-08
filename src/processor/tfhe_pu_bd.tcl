@@ -25,8 +25,15 @@ set current_vivado_version [version -short]
 
 if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
    puts ""
-   common::send_gid_msg -ssname BD::TCL -id 2040 -severity "CRITICAL WARNING" "This script was generated using Vivado <$scripts_vivado_version> without IP versions in the create_bd_cell commands, but is now being run in <$current_vivado_version> of Vivado. There may have been changes to the IP between Vivado <$scripts_vivado_version> and <$current_vivado_version>, which could impact the functionality and configuration of the design."
+   if { [string compare $scripts_vivado_version $current_vivado_version] > 0 } {
+      catch {common::send_gid_msg -ssname BD::TCL -id 2042 -severity "ERROR" " This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Sourcing the script failed since it was created with a future version of Vivado."}
 
+   } else {
+     catch {common::send_gid_msg -ssname BD::TCL -id 2041 -severity "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
+
+   }
+
+   return 1
 }
 
 ################################################################
@@ -130,11 +137,12 @@ set bCheckIPsPassed 1
 set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
-xilinx.com:ip:clk_wiz:*\
-xilinx.com:ip:smartconnect:*\
-xilinx.com:ip:xpm_cdc_gen:*\
-xilinx.com:ip:util_ds_buf:*\
-xilinx.com:ip:xdma:*\
+xilinx.com:ip:clk_wiz:6.0\
+xilinx.com:ip:smartconnect:1.0\
+xilinx.com:ip:xpm_cdc_gen:1.0\
+xilinx.com:ip:util_ds_buf:2.2\
+xilinx.com:ip:xdma:4.2\
+xilinx.com:ip:axi_clock_converter:2.1\
 "
 
    set list_ips_missing ""
@@ -243,18 +251,18 @@ proc create_root_design { parentCell } {
   set hbm_ref_clk_1 [ create_bd_port -dir I -type clk -freq_hz 100000000 hbm_ref_clk_1 ]
 
   # Create instance: clk_wiz_0, and set properties
-  set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz clk_wiz_0 ]
+  set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0 ]
   set_property -dict [list \
     CONFIG.AUTO_PRIMITIVE {PLL} \
     CONFIG.CLKIN2_JITTER_PS {149.99} \
     CONFIG.CLKOUT1_DRIVES {BUFG} \
-    CONFIG.CLKOUT1_JITTER {144.719} \
-    CONFIG.CLKOUT1_PHASE_ERROR {114.212} \
+    CONFIG.CLKOUT1_JITTER {109.471} \
+    CONFIG.CLKOUT1_PHASE_ERROR {82.897} \
     CONFIG.CLKOUT2_DRIVES {Buffer} \
-    CONFIG.CLKOUT2_JITTER {111.879} \
-    CONFIG.CLKOUT2_PHASE_ERROR {105.461} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {100.000} \
-    CONFIG.CLKOUT2_USED {false} \
+    CONFIG.CLKOUT2_JITTER {88.518} \
+    CONFIG.CLKOUT2_PHASE_ERROR {82.897} \
+    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {325} \
+    CONFIG.CLKOUT2_USED {true} \
     CONFIG.CLKOUT3_DRIVES {Buffer} \
     CONFIG.CLKOUT3_JITTER {144.719} \
     CONFIG.CLKOUT3_PHASE_ERROR {114.212} \
@@ -267,17 +275,17 @@ proc create_root_design { parentCell } {
     CONFIG.CLK_IN1_BOARD_INTERFACE {default_100mhz_clk} \
     CONFIG.CLK_IN2_BOARD_INTERFACE {Custom} \
     CONFIG.CLK_OUT1_PORT {apb_clk} \
-    CONFIG.CLK_OUT2_PORT {clk_out2} \
+    CONFIG.CLK_OUT2_PORT {tfhe_clk} \
     CONFIG.CLK_OUT3_PORT {clk_out3} \
     CONFIG.FEEDBACK_SOURCE {FDBK_AUTO} \
     CONFIG.MMCM_BANDWIDTH {OPTIMIZED} \
-    CONFIG.MMCM_CLKFBOUT_MULT_F {8} \
+    CONFIG.MMCM_CLKFBOUT_MULT_F {13} \
     CONFIG.MMCM_CLKIN2_PERIOD {10.000} \
-    CONFIG.MMCM_CLKOUT0_DIVIDE_F {8} \
-    CONFIG.MMCM_CLKOUT1_DIVIDE {1} \
+    CONFIG.MMCM_CLKOUT0_DIVIDE_F {13} \
+    CONFIG.MMCM_CLKOUT1_DIVIDE {4} \
     CONFIG.MMCM_CLKOUT2_DIVIDE {1} \
     CONFIG.MMCM_COMPENSATION {AUTO} \
-    CONFIG.NUM_OUT_CLKS {1} \
+    CONFIG.NUM_OUT_CLKS {2} \
     CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true} \
     CONFIG.PRIMITIVE {Auto} \
     CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
@@ -302,7 +310,7 @@ proc create_root_design { parentCell } {
    }
   
   # Create instance: smartconnect_1, and set properties
-  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smartconnect_1 ]
+  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_1 ]
   set_property -dict [list \
     CONFIG.NUM_MI {13} \
     CONFIG.NUM_SI {1} \
@@ -310,15 +318,17 @@ proc create_root_design { parentCell } {
 
 
   # Create instance: xpm_cdc_gen_0, and set properties
-  set xpm_cdc_gen_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen xpm_cdc_gen_0 ]
+  set xpm_cdc_gen_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen:1.0 xpm_cdc_gen_0 ]
+  set_property CONFIG.CDC_TYPE {xpm_cdc_async_rst} $xpm_cdc_gen_0
+
 
   # Create instance: util_ds_buf_0, and set properties
-  set util_ds_buf_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf util_ds_buf_0 ]
+  set util_ds_buf_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0 ]
   set_property CONFIG.DIFF_CLK_IN_BOARD_INTERFACE {pcie_refclk} $util_ds_buf_0
 
 
   # Create instance: xdma_1, and set properties
-  set xdma_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma xdma_1 ]
+  set xdma_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.2 xdma_1 ]
   set_property -dict [list \
     CONFIG.PCIE_BOARD_INTERFACE {pci_express_x8} \
     CONFIG.SYS_RST_N_BOARD_INTERFACE {pcie_perstn} \
@@ -333,7 +343,24 @@ proc create_root_design { parentCell } {
   ] $xdma_1
 
 
+  # Create instance: axi_clock_converter_0, and set properties
+  set axi_clock_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0 ]
+  set_property CONFIG.ACLK_ASYNC {1} $axi_clock_converter_0
+
+
+  # Create instance: axi_clock_converter_1, and set properties
+  set axi_clock_converter_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_1 ]
+  set_property CONFIG.ACLK_ASYNC {1} $axi_clock_converter_1
+
+
+  # Create instance: xpm_cdc_gen_1, and set properties
+  set xpm_cdc_gen_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen:1.0 xpm_cdc_gen_1 ]
+  set_property CONFIG.CDC_TYPE {xpm_cdc_async_rst} $xpm_cdc_gen_1
+
+
   # Create interface connections
+  connect_bd_intf_net -intf_net axi_clock_converter_0_M_AXI [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins axi_clock_converter_0/M_AXI]
+  connect_bd_intf_net -intf_net axi_clock_converter_1_M_AXI [get_bd_intf_pins tfhe_block_0/s00_axi] [get_bd_intf_pins axi_clock_converter_1/M_AXI]
   connect_bd_intf_net -intf_net default_100mhz_clk_1 [get_bd_intf_ports default_100mhz_clk] [get_bd_intf_pins clk_wiz_0/CLK_IN1_D]
   connect_bd_intf_net -intf_net pcie_refclk_1 [get_bd_intf_ports pcie_refclk] [get_bd_intf_pins util_ds_buf_0/CLK_IN_D]
   connect_bd_intf_net -intf_net smartconnect_1_M00_AXI [get_bd_intf_pins smartconnect_1/M00_AXI] [get_bd_intf_pins tfhe_block_0/AXI_00]
@@ -349,29 +376,19 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net smartconnect_1_M10_AXI [get_bd_intf_pins tfhe_block_0/AXI_18] [get_bd_intf_pins smartconnect_1/M10_AXI]
   connect_bd_intf_net -intf_net smartconnect_1_M11_AXI [get_bd_intf_pins smartconnect_1/M11_AXI] [get_bd_intf_pins tfhe_block_0/AXI_19]
   connect_bd_intf_net -intf_net smartconnect_1_M12_AXI [get_bd_intf_pins tfhe_block_0/AXI_20] [get_bd_intf_pins smartconnect_1/M12_AXI]
-  connect_bd_intf_net -intf_net xdma_1_M_AXI [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins xdma_1/M_AXI]
-  connect_bd_intf_net -intf_net xdma_1_M_AXI_LITE [get_bd_intf_pins xdma_1/M_AXI_LITE] [get_bd_intf_pins tfhe_block_0/s00_axi]
+  connect_bd_intf_net -intf_net xdma_1_M_AXI [get_bd_intf_pins axi_clock_converter_0/S_AXI] [get_bd_intf_pins xdma_1/M_AXI]
+  connect_bd_intf_net -intf_net xdma_1_M_AXI_LITE [get_bd_intf_pins xdma_1/M_AXI_LITE] [get_bd_intf_pins axi_clock_converter_1/S_AXI]
   connect_bd_intf_net -intf_net xdma_1_pcie_mgt [get_bd_intf_ports pci_express_x8] [get_bd_intf_pins xdma_1/pcie_mgt]
 
   # Create port connections
   connect_bd_net -net clk_wiz_0_apb_clk  [get_bd_pins clk_wiz_0/apb_clk] \
   [get_bd_pins xpm_cdc_gen_0/dest_clk] \
   [get_bd_pins tfhe_block_0/APB_0_PCLK]
-  connect_bd_net -net hbm_ref_clk_0_1  [get_bd_ports hbm_ref_clk_0] \
-  [get_bd_pins tfhe_block_0/HBM_REF_CLK_0]
-  connect_bd_net -net hbm_ref_clk_1_1  [get_bd_ports hbm_ref_clk_1] \
-  [get_bd_pins tfhe_block_0/HBM_REF_CLK_1]
-  connect_bd_net -net pcie_perstn_1  [get_bd_ports pcie_perstn] \
-  [get_bd_pins xdma_1/sys_rst_n]
-  connect_bd_net -net tfhe_block_0_user_led  [get_bd_pins tfhe_block_0/user_led] \
-  [get_bd_ports leds]
-  connect_bd_net -net util_ds_buf_0_IBUF_DS_ODIV2  [get_bd_pins util_ds_buf_0/IBUF_DS_ODIV2] \
-  [get_bd_pins xdma_1/sys_clk]
-  connect_bd_net -net util_ds_buf_0_IBUF_OUT  [get_bd_pins util_ds_buf_0/IBUF_OUT] \
-  [get_bd_pins xdma_1/sys_clk_gt]
-  connect_bd_net -net xdma_0_axi_aclk1  [get_bd_pins xdma_1/axi_aclk] \
+  connect_bd_net -net clk_wiz_0_tfhe_clk  [get_bd_pins clk_wiz_0/tfhe_clk] \
+  [get_bd_pins axi_clock_converter_0/m_axi_aclk] \
   [get_bd_pins smartconnect_1/aclk] \
-  [get_bd_pins xpm_cdc_gen_0/src_clk] \
+  [get_bd_pins axi_clock_converter_1/m_axi_aclk] \
+  [get_bd_pins xpm_cdc_gen_1/dest_clk] \
   [get_bd_pins tfhe_block_0/TFHE_CLK] \
   [get_bd_pins tfhe_block_0/s00_axi_aclk] \
   [get_bd_pins tfhe_block_0/AXI_00_ACLK] \
@@ -387,13 +404,34 @@ proc create_root_design { parentCell } {
   [get_bd_pins tfhe_block_0/AXI_18_ACLK] \
   [get_bd_pins tfhe_block_0/AXI_19_ACLK] \
   [get_bd_pins tfhe_block_0/AXI_20_ACLK]
+  connect_bd_net -net hbm_ref_clk_0_1  [get_bd_ports hbm_ref_clk_0] \
+  [get_bd_pins tfhe_block_0/HBM_REF_CLK_0]
+  connect_bd_net -net hbm_ref_clk_1_1  [get_bd_ports hbm_ref_clk_1] \
+  [get_bd_pins tfhe_block_0/HBM_REF_CLK_1]
+  connect_bd_net -net pcie_perstn_1  [get_bd_ports pcie_perstn] \
+  [get_bd_pins xdma_1/sys_rst_n]
+  connect_bd_net -net tfhe_block_0_user_led  [get_bd_pins tfhe_block_0/user_led] \
+  [get_bd_ports leds]
+  connect_bd_net -net util_ds_buf_0_IBUF_DS_ODIV2  [get_bd_pins util_ds_buf_0/IBUF_DS_ODIV2] \
+  [get_bd_pins xdma_1/sys_clk]
+  connect_bd_net -net util_ds_buf_0_IBUF_OUT  [get_bd_pins util_ds_buf_0/IBUF_OUT] \
+  [get_bd_pins xdma_1/sys_clk_gt]
   connect_bd_net -net xdma_0_axi_aresetn1  [get_bd_pins xdma_1/axi_aresetn] \
+  [get_bd_pins axi_clock_converter_0/s_axi_aresetn] \
+  [get_bd_pins axi_clock_converter_1/s_axi_aresetn]
+  connect_bd_net -net xdma_1_axi_aclk  [get_bd_pins xdma_1/axi_aclk] \
+  [get_bd_pins axi_clock_converter_0/s_axi_aclk] \
+  [get_bd_pins axi_clock_converter_1/s_axi_aclk] \
+  [get_bd_pins xpm_cdc_gen_1/src_arst] \
+  [get_bd_pins xpm_cdc_gen_0/src_arst]
+  connect_bd_net -net xpm_cdc_gen_0_dest_arst  [get_bd_pins xpm_cdc_gen_0/dest_arst] \
+  [get_bd_pins tfhe_block_0/APB_0_PRESET_N]
+  connect_bd_net -net xpm_cdc_gen_1_dest_out  [get_bd_pins xpm_cdc_gen_1/dest_arst] \
   [get_bd_pins smartconnect_1/aresetn] \
-  [get_bd_pins xpm_cdc_gen_0/src_in] \
+  [get_bd_pins axi_clock_converter_0/m_axi_aresetn] \
+  [get_bd_pins axi_clock_converter_1/m_axi_aresetn] \
   [get_bd_pins tfhe_block_0/s00_axi_aresetn] \
   [get_bd_pins tfhe_block_0/AXI_ARESET_N]
-  connect_bd_net -net xpm_cdc_gen_0_dest_out  [get_bd_pins xpm_cdc_gen_0/dest_out] \
-  [get_bd_pins tfhe_block_0/APB_0_PRESET_N]
 
   # Create address segments
   assign_bd_address -offset 0x00000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_00/reg0] -force
@@ -427,11 +465,12 @@ proc create_root_design { parentCell } {
 # MAIN FLOW
 ##################################################################
 
+
 # add and configure the left hbm stack
 create_ip -name hbm -vendor xilinx.com -library ip -version 1.0 -module_name hbm_0
 set_property -dict [list \
 CONFIG.USER_APB_EN {false} \
-CONFIG.USER_HBM_TCK_0 {250} \
+CONFIG.USER_HBM_TCK_0 {325} \
 CONFIG.USER_MC0_EN_DATA_MASK {false} \
 CONFIG.USER_MC0_TRAFFIC_OPTION {Linear} \
 CONFIG.USER_SWITCH_ENABLE_00 {FALSE} \
@@ -442,7 +481,7 @@ CONFIG.USER_XSDB_INTF_EN {FALSE} \
 create_ip -name hbm -vendor xilinx.com -library ip -version 1.0 -module_name hbm_1
 set_property -dict [list \
 CONFIG.USER_APB_EN {false} \
-CONFIG.USER_HBM_TCK_0 {250} \
+CONFIG.USER_HBM_TCK_0 {325} \
 CONFIG.USER_MC0_EN_DATA_MASK {false} \
 CONFIG.USER_MC0_TRAFFIC_OPTION {Linear} \
 CONFIG.USER_SINGLE_STACK_SELECTION {RIGHT} \
@@ -462,4 +501,4 @@ generate_target all [get_files tfhe_pu_bd.bd]
 
 # refresh block design
 update_module_reference tfhe_pu_bd_tfhe_block_0_0
- 
+

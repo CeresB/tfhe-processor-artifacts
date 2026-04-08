@@ -476,7 +476,7 @@ package body ntt_utils is
                     ntt_block_delay := ntt_num_blocks_per_polym / 2;
                end if;
                for sequential_stage in 0 to ntt_num_single_stages - 1 loop
-                    ntt_block_delay := ntt_block_delay + ntt_stage_logic_out_bufs + ((ntt_num_blocks_per_polym / 2) / (2 ** sequential_stage));
+                    ntt_block_delay := ntt_block_delay + ntt_stage_logic_out_delay + ((ntt_num_blocks_per_polym / 2) / (2 ** sequential_stage));
                end loop;
                ntt_clks_till_first_block_ready := ntt_stages_pipeline_latency + ntt_block_delay;
 

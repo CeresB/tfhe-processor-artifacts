@@ -39,10 +39,10 @@ library work;
 entity pbs_lut_buffer is
      port (
           i_clk             : in  std_ulogic;
-          i_new_batch       : in  std_ulogic;
+          i_init       : in  std_ulogic;
           i_lut_start_addr  : in  hbm_ps_port_memory_address;
+          i_lut_addr_valid  : in  std_ulogic;
           i_reset_n         : in  std_ulogic;
-          i_pbs_reset       : in  std_ulogic; -- it takes ram_retiming_latency until values can follow after pbs_reset drops
           i_hbm_read_out    : in  hbm_ps_out_read_pkg;
           o_hbm_read_in     : out hbm_ps_in_read_pkg;
           o_lut_part        : out sub_polynom(0 to pbs_throughput - 1);
@@ -70,6 +70,7 @@ architecture Behavioral of pbs_lut_buffer is
           );
      end component;
 
+     constant bytes_per_pbs_lut  : integer := coeffs_per_pbs_lut * 8;
      constant num_lut_blocks     : integer := coeffs_per_pbs_lut / pbs_throughput;
      constant storage_num_blocks : integer := num_lut_blocks * pbs_batchsize;
 
@@ -86,6 +87,8 @@ architecture Behavioral of pbs_lut_buffer is
 
      signal write_en_vec : std_ulogic_vector(0 to o_lut_part'length - 1);
      signal hbm_part     : sub_polynom(0 to hbm_coeffs_per_clock_per_ps_port - 1);
+     signal addr_buf_full: std_ulogic;
+     signal lut_storage_not_full: std_ulogic;
 
 begin
 
@@ -98,68 +101,74 @@ begin
      begin
           if rising_edge(i_clk) then
                if i_reset_n = '0' then
-                    o_hbm_read_in.arvalid <= '0';
                     o_ready_to_output <= '0';
                     lut_in_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_in_block_cnt'length);
                     lut_block_coeff_cnt <= to_unsigned(0, lut_block_coeff_cnt'length);
-               else
-                    -- input from hbm
-                    if i_hbm_read_out.rvalid = '1' then -- we expect that rvalid is only active one clock tic
-                         lut_block_coeff_cnt <= lut_block_coeff_cnt + to_unsigned(hbm_coeffs_per_clock_per_ps_port, lut_block_coeff_cnt'length); -- modulos itself
-                         if lut_block_coeff_cnt = to_unsigned(pbs_throughput-hbm_coeffs_per_clock_per_ps_port,lut_block_coeff_cnt'length) then
-                              if lut_in_block_cnt > 0 then
-                                   lut_in_block_cnt <= lut_in_block_cnt - to_unsigned(1, lut_in_block_cnt'length);
-                              else
-                                   lut_in_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_in_block_cnt'length);
-                                   o_ready_to_output <= '1';
-                              end if;
-                         end if;
-                    end if;
-               end if;
-
-               -- input from op buffer
-               if i_new_batch = '1' then
-                    -- technically we should wait one br-iteration so that everything in lut buffer was used
-                    -- but since the hbm is slower than this buffer we are not overwriting any unused data in the buffer
+                    addr_buf_full <= '0';
                     lut_addr_in_cnt <= to_unsigned(pbs_batchsize-1, lut_addr_in_cnt'length);
-                    lut_addr_out_cnt <= to_unsigned(pbs_batchsize-1, lut_addr_out_cnt'length);
-                    rq_addr_offset <= to_unsigned(coeffs_per_pbs_lut-hbm_bytes_per_ps_port,rq_addr_offset'length);
+                    -- lut_addr_out_cnt <= to_unsigned(pbs_batchsize-1, lut_addr_out_cnt'length);
+                    -- lut_storage_not_full <= '1';
+                    rq_addr_offset <= to_unsigned(bytes_per_pbs_lut-hbm_bytes_per_ps_port,rq_addr_offset'length);
+                    lut_out_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_out_block_cnt'length);
                else
-                    -- we expect that after new_batch='1' the op buffer provides batchsize-many lut addresses and then stops until new_batch is triggered again
-                    if lut_addr_in_cnt > 0 then
-                         lut_addr_in_cnt <= lut_addr_in_cnt - to_unsigned(1, lut_addr_in_cnt'length);
+                    -- input from op buffer
+                    -- we expect that the op buffer provides batchsize-many lut addresses and then stops until the next batch
+                    if i_lut_addr_valid='1' then
+                         if lut_addr_in_cnt = 0 then
+                              lut_addr_in_cnt <= to_unsigned(pbs_batchsize-1, lut_addr_in_cnt'length);
+                              addr_buf_full <= '1';
+                         else
+                              lut_addr_in_cnt <= lut_addr_in_cnt - to_unsigned(1, lut_addr_in_cnt'length);
+                              addr_buf_full <= '0';
+                         end if;
                          lut_addresses(to_integer(lut_addr_in_cnt)) <= i_lut_start_addr;
-                    else
+                    end if;
+                    if addr_buf_full='1' then
                          -- we have all lut addresses and can start requesting
-                         -- wait one br-iteration before doing this, so that we don't overwrite the values that are used in the current iteration
-                         -- is respected by i_new_batch being one br-iteration late
-                         if i_hbm_read_out.arready = '1' and lut_addr_out_cnt > 0 then
-                              o_hbm_read_in.arvalid <= '1';
-                              o_hbm_read_in.araddr <= lut_addresses(to_integer(lut_addr_out_cnt)) + rq_addr_offset;
-                              if rq_addr_offset > 0 then
-                                   rq_addr_offset <= rq_addr_offset - to_unsigned(hbm_bytes_per_ps_port,rq_addr_offset'length);
+                         if i_hbm_read_out.arready = '1' then
+                              if (lut_addr_out_cnt = 0) and (rq_addr_offset = 0) then
+                                   lut_storage_not_full <= '0';
                               else
-                                   rq_addr_offset <= to_unsigned(coeffs_per_pbs_lut-hbm_bytes_per_ps_port,rq_addr_offset'length);
-                                   -- if lut complete, request next lut
-                                   lut_addr_out_cnt <= lut_addr_out_cnt - to_unsigned(1, lut_addr_out_cnt'length);
+                                   if rq_addr_offset = 0 then
+                                        rq_addr_offset <= to_unsigned(bytes_per_pbs_lut-hbm_bytes_per_ps_port,rq_addr_offset'length);
+                                        -- if lut complete, request next lut
+                                        lut_addr_out_cnt <= lut_addr_out_cnt - to_unsigned(1, lut_addr_out_cnt'length);
+                                   else
+                                        rq_addr_offset <= rq_addr_offset - to_unsigned(hbm_bytes_per_ps_port,rq_addr_offset'length);
+                                   end if;
                               end if;
                          else
                               o_hbm_read_in.arvalid <= '0';
                          end if;
-                    end if;
-               end if;
-
-               -- output to pbs module
-               if i_pbs_reset = '1' then
-                    lut_out_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_out_block_cnt'length);
-               else
-                    if lut_out_block_cnt > 0 then
-                         lut_out_block_cnt <= lut_out_block_cnt - to_unsigned(1, lut_out_block_cnt'length);
+                         o_hbm_read_in.arvalid <= lut_storage_not_full;
                     else
-                         lut_out_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_out_block_cnt'length);
+                         lut_addr_out_cnt <= to_unsigned(pbs_batchsize-1, lut_addr_out_cnt'length);
+                         lut_storage_not_full <= '1';
+                    end if;
+
+                    -- input from hbm
+                    if i_hbm_read_out.rvalid = '1' then -- we expect that rvalid is only active one clock tic per input
+                         lut_block_coeff_cnt <= lut_block_coeff_cnt + to_unsigned(hbm_coeffs_per_clock_per_ps_port, lut_block_coeff_cnt'length); -- modulos itself
+                         if lut_block_coeff_cnt = to_unsigned(pbs_throughput-hbm_coeffs_per_clock_per_ps_port,lut_block_coeff_cnt'length) then
+                              if lut_in_block_cnt = 0 then
+                                   lut_in_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_in_block_cnt'length);
+                                   o_ready_to_output <= '1';
+                              else
+                                   lut_in_block_cnt <= lut_in_block_cnt - to_unsigned(1, lut_in_block_cnt'length);
+                              end if;
+                         end if;
+                    end if;
+                    
+                    -- output to pbs module
+                    if i_init = '1' then
+                         if lut_out_block_cnt = 0 then
+                              lut_out_block_cnt <= to_unsigned(storage_num_blocks - 1, lut_out_block_cnt'length);
+                         else
+                              lut_out_block_cnt <= lut_out_block_cnt - to_unsigned(1, lut_out_block_cnt'length);
+                         end if;
                     end if;
                end if;
-
+               o_hbm_read_in.araddr <= lut_addresses(to_integer(lut_addr_out_cnt)) + rq_addr_offset;
           end if;
      end process;
 
@@ -170,16 +179,20 @@ begin
      end generate;
 
      brams_per_throughput: for coeff_idx in 0 to o_lut_part'length - 1 generate
-          process (i_clk) is
-          begin
-               if rising_edge(i_clk) then
-                    if lut_block_coeff_cnt = to_unsigned(coeff_idx - coeff_idx mod hbm_coeffs_per_clock_per_ps_port, lut_block_coeff_cnt'length) then
-                         write_en_vec(coeff_idx) <= '1';
-                    else
-                         write_en_vec(coeff_idx) <= '0';
-                    end if;
-               end if;
-          end process;
+          -- process (i_clk) is
+          -- begin
+          --      if rising_edge(i_clk) then
+          --           if lut_block_coeff_cnt = to_unsigned(coeff_idx - coeff_idx mod hbm_coeffs_per_clock_per_ps_port, lut_block_coeff_cnt'length) then
+          --                write_en_vec(coeff_idx) <= '1';
+          --           else
+          --                write_en_vec(coeff_idx) <= '0';
+          --           end if;
+          --      end if;
+          -- end process;
+          
+          -- we don't want to buffer the input --> need to set write enable immediately. Should work because its used in the next clock cycle
+          write_en_vec(coeff_idx) <= '1' when (lut_block_coeff_cnt = to_unsigned(coeff_idx - coeff_idx mod hbm_coeffs_per_clock_per_ps_port, lut_block_coeff_cnt'length)) else '0';
+
           ram_elem: manual_bram
                generic map (
                     addr_length         => lut_out_block_cnt'length,

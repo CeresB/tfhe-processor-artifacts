@@ -70,17 +70,17 @@ architecture Behavioral of stage_overhead_logic_core is
      signal input_forth_quarter_buffer : quarter_buffer;
 
      type in_coeff_quarter_cnt_buf is array (natural range <>) of unsigned(0 to get_max(1, quarter_cnt_width) - 1);
-     signal in_coeff_quarter_cnt : in_coeff_quarter_cnt_buf(0 to counter_buffer_len - 1);
-     signal in_other_half        : std_ulogic_vector(0 to counter_buffer_len + ntt_in_other_half_early - 1);
+     signal in_coeff_quarter_cnt : unsigned(0 to get_max(1, quarter_cnt_width) - 1);
+     signal in_other_half        : std_ulogic_vector(0 to 1+ntt_in_other_half_early - 1);
 
      type sub_polynom_throughput_vec is array (natural range <>) of sub_polynom(0 to throughput - 1);
      signal out_bufs : sub_polynom_throughput_vec(0 to ntt_stage_logic_out_bufs - 1);
      constant reset_cnt_tripping_val : integer := ram_block'length + out_bufs'length;
 
-     signal internal_reset_chain : std_ulogic_vector(0 to ntt_num_clks_reset_early-(counter_buffer_len-1) - 1);
+     signal internal_reset_chain : std_ulogic_vector(0 to ntt_num_clks_reset_early - 1);
      signal internal_reset       : std_ulogic;
      signal internal_in_other_half_reset       : std_ulogic;
-     signal in_other_half_cnt : unsigned(0 to in_coeff_quarter_cnt(0)'length - 1); -- is in_coeff_quarter_cnt detached from its reset
+     signal in_other_half_cnt : unsigned(0 to in_coeff_quarter_cnt'length - 1); -- is in_coeff_quarter_cnt detached from its reset
 
      constant cnt_step_val     : integer := 1;
      constant cnt_start_val : integer := ram_block'length - cnt_step_val;
@@ -113,18 +113,17 @@ begin
                          end if;
                     end if;
                     if internal_reset = '1' then
-                         in_coeff_quarter_cnt(0) <= to_unsigned(cnt_start_val, in_coeff_quarter_cnt(0)'length);
+                         in_coeff_quarter_cnt <= to_unsigned(cnt_start_val, in_coeff_quarter_cnt'length);
                     else
-                         in_coeff_quarter_cnt(0) <= in_coeff_quarter_cnt(0) - to_unsigned(cnt_step_val, in_coeff_quarter_cnt(0)'length);
+                         in_coeff_quarter_cnt <= in_coeff_quarter_cnt - to_unsigned(cnt_step_val, in_coeff_quarter_cnt'length);
                     end if;
-                    in_coeff_quarter_cnt(1 to in_coeff_quarter_cnt'length - 1) <= in_coeff_quarter_cnt(0 to in_coeff_quarter_cnt'length - 2);
                     in_other_half(1 to in_other_half'length - 1) <= in_other_half(0 to in_other_half'length - 2);
                end if;
           end process;
      end generate;
 
      no_cnts: if (is_last_ntt_or_first_intt_stage) generate
-          --in_coeff_quarter_cnt(0) <= to_unsigned(0, in_coeff_quarter_cnt(0)'length);
+          in_coeff_quarter_cnt <= to_unsigned(0, in_coeff_quarter_cnt'length);
           process (i_clk) is
           begin
                if rising_edge(i_clk) then
@@ -158,15 +157,15 @@ begin
           begin
                if rising_edge(i_clk) then
                     if in_other_half(in_other_half'length - 1) = '0' then
-                         input_first_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1))) <= i_previous_stage_output(i);
-                         input_mid_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1))) <= i_previous_stage_output(i + half_throughput);
-                         out_bufs(0)(i) <= input_mid_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1)));
-                         out_bufs(0)(half_throughput + i) <= input_forth_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1)));
+                         input_first_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt)) <= i_previous_stage_output(i);
+                         input_mid_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt)) <= i_previous_stage_output(i + half_throughput);
+                         out_bufs(0)(i) <= input_mid_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt));
+                         out_bufs(0)(half_throughput + i) <= input_forth_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt));
                     else
-                         out_bufs(0)(i) <= input_first_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1)));
+                         out_bufs(0)(i) <= input_first_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt));
                          -- the second quarter is not buffered in the ntt
                          out_bufs(0)(half_throughput + i) <= i_previous_stage_output(i);
-                         input_forth_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt(in_coeff_quarter_cnt'length - 1))) <= i_previous_stage_output(i + half_throughput);
+                         input_forth_quarter_buffer(i)(to_integer(in_coeff_quarter_cnt)) <= i_previous_stage_output(i + half_throughput);
                     end if;
                end if;
           end process;

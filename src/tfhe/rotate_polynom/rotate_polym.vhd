@@ -85,8 +85,7 @@ architecture Behavioral of rotate_polym is
      signal index_plus_ai_reduced        : idx_int_array(0 to o_result'length - 1);      -- does modulo automatically
      signal index_plus_ai_reduced_buffer : idx_int_array(0 to o_result'length / 2 - 1);  -- does modulo automatically
 
-     type in_coeff_cnt_buf is array(natural range <>) of unsigned(0 to log2_num_coefficients - 1 - 1); -- another -1 because need half cnt for ntt mixed format
-     signal input_coeff_cnt      : in_coeff_cnt_buf(0 to counter_buffer_len-1);
+     signal input_coeff_cnt      : unsigned(0 to log2_num_coefficients - 1 - 1); -- another -1 because need half cnt for ntt mixed format;
 
      signal index_original_value        : idx_int_array(0 to o_result'length - 1); -- does modulo automatically
      signal index_original_value_buffer : idx_int_array(0 to o_result'length - 1);
@@ -144,7 +143,7 @@ begin
 
      initial_latency_counter: one_time_counter
           generic map (
-               tripping_value     => rotate_polym_first_block_initial_delay-(counter_buffer_len-1),
+               tripping_value     => rotate_polym_first_block_initial_delay,
                out_negated        => true,
                bufferchain_length => trailing_reset_buffer_len
           )
@@ -301,6 +300,12 @@ begin
           ai_throughput_part <= to_unsigned(0,ai_throughput_part'length);
           inner_block_offset <= to_unsigned(0,inner_block_offset'length);
           ai_roll_factor_msb <= '0';
+          process (i_clk) is
+          begin
+               if rising_edge(i_clk) then
+                    across_block_offset(0) <= index_plus_ai_reduced_buffer_2_msb;
+               end if;
+          end process;
      end generate;
 
      shift: if log2_half_throughput > 0 generate
@@ -385,25 +390,16 @@ begin
           if rising_edge(i_clk) then
                -- getting this counter going is the reason for why reset must be dropped an additional clock tic earlier
                if i_reset = '1' then
-                    input_coeff_cnt(0) <= to_unsigned(0, input_coeff_cnt(0)'length);
+                    input_coeff_cnt <= to_unsigned(0, input_coeff_cnt'length);
                else
-                    input_coeff_cnt(0) <= input_coeff_cnt(0) + to_unsigned(throughput / 2, input_coeff_cnt(0)'length);
+                    input_coeff_cnt <= input_coeff_cnt + to_unsigned(throughput / 2, input_coeff_cnt'length);
                end if;
 
                for i in 0 to index_original_value'length / 2 - 1 loop
-                    index_original_value(i) <= to_unsigned(i, idx_int'length) + ('0' & input_coeff_cnt(input_coeff_cnt'length-1));
-                    index_original_value(throughput / 2 + i) <= to_unsigned(i + num_coefficients / 2, idx_int'length) + ('0' & input_coeff_cnt(input_coeff_cnt'length-1));
+                    index_original_value(i) <= to_unsigned(i, idx_int'length) + ('0' & input_coeff_cnt);
+                    index_original_value(throughput / 2 + i) <= to_unsigned(i + num_coefficients / 2, idx_int'length) + ('0' & input_coeff_cnt);
                end loop;
           end if;
      end process;
-     
-     cnt_buf: if input_coeff_cnt'length > 1 generate
-          process (i_clk) is
-          begin
-               if rising_edge(i_clk) then
-                    input_coeff_cnt(1 to input_coeff_cnt'length-1) <= input_coeff_cnt(0 to input_coeff_cnt'length-2);
-               end if;
-          end process;
-     end generate;
 
 end architecture;

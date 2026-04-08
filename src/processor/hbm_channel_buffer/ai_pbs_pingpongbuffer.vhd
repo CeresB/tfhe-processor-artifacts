@@ -89,14 +89,14 @@ architecture Behavioral of ai_pbs_pingpongbuffer is
 
      signal lwe_in_addr_ram : hbm_ps_port_memory_address_arr(0 to 2*pbs_batchsize - 1);
      signal rq_addr_offset: hbm_ps_port_memory_address;
-     signal addr_buf_batchsize_in_cnt : unsigned(0 to get_bit_length(pbs_batchsize - 1) - 1);
+     signal lwe_addr_ram_in_cnt: unsigned(0 to get_bit_length(pbs_batchsize - 1) - 1);
+     signal lwe_addr_ram_in_cnt_offset : unsigned(0 to lwe_addr_ram_in_cnt'length+1 - 1);
+     signal lwe_addr_ram_out_cnt: unsigned(0 to lwe_addr_ram_in_cnt'length - 1);
+     signal lwe_addr_ram_out_cnt_offset : unsigned(0 to lwe_addr_ram_in_cnt'length+1 - 1);
 
-     signal ready_to_rq               : std_ulogic;
-     signal enough_rqs_to_fill_ai_buf : std_ulogic;
      constant ping_buf_length : integer := pbs_batchsize;
      constant ram_len : integer := 2 * ping_buf_length;
      signal receive_cnt : unsigned(0 to get_bit_length(ram_len - 1) - 1);
-     signal rq_cnt      : unsigned(0 to get_bit_length(pbs_batchsize - 1) - 1);
 
      -- ai_values are next to each other in memory, such that we get multiple at once
      signal ai_out_buf : rotate_idx_array(0 to ai_hbm_coeffs_per_clk - 1);
@@ -108,8 +108,6 @@ architecture Behavioral of ai_pbs_pingpongbuffer is
      signal ai_val_valid_cnt         : unsigned(0 to get_bit_length(clks_ai_valid - 1) - 1);
 
      signal start_outputting : std_ulogic;
-     signal init_done        : std_ulogic;
-     signal do_request       : std_ulogic;
 
      signal hbm_data_stripped : rotate_idx_array(0 to ai_hbm_coeffs_per_clk - 1);
      signal hbm_part          : sub_polynom(0 to ai_hbm_coeffs_per_clk - 1);
@@ -122,10 +120,12 @@ architecture Behavioral of ai_pbs_pingpongbuffer is
      signal out_part_cnt_buf_chain: out_cnt_arr(0 to default_ram_retiming_latency-1);
 
      signal ready_to_output_buf: std_ulogic_vector(0 to ai_buffer_output_buffer-1);
+     signal addr_buf_full: std_ulogic;
+     signal ai_storage_not_full: std_ulogic;
+     constant ai_bytes_per_lwe: integer := ai_pkgs_per_lwe*ai_hbm_coeffs_per_clk*8;
 
 begin
 
-     do_request <= '1' when (ready_to_rq = '1') and (i_hbm_ps_in_read_out_pkg(0).arready = '1') and (enough_rqs_to_fill_ai_buf = '0') else '0';
      o_ready_to_output <= ready_to_output_buf(ready_to_output_buf'length-1);
 
      -- we assume that the HBM is more than fast enough to write to the buffer, so it will never be too late but can be too early
@@ -133,64 +133,76 @@ begin
      begin
           if rising_edge(i_clk) then
                if i_reset_n = '0' then
-                    addr_buf_batchsize_in_cnt <= to_unsigned(2*pbs_batchsize - 1, addr_buf_batchsize_in_cnt'length);
-                    ready_to_rq <= '0';
-                    enough_rqs_to_fill_ai_buf <= '0';
-
-                    rq_cnt <= to_unsigned(pbs_batchsize - 1, rq_cnt'length);
-                    init_done <= '0';
+                    lwe_addr_ram_in_cnt <= to_unsigned(pbs_batchsize - 1, lwe_addr_ram_in_cnt'length);
+                    lwe_addr_ram_out_cnt <= to_unsigned(pbs_batchsize - 1, lwe_addr_ram_out_cnt'length);
                     rq_addr_offset <= to_unsigned(0,rq_addr_offset'length);
+                    addr_buf_full <= '0';
+                    lwe_addr_ram_out_cnt_offset <= to_unsigned(0,lwe_addr_ram_out_cnt_offset'length);
+                    lwe_addr_ram_in_cnt_offset <= to_unsigned(0,lwe_addr_ram_in_cnt_offset'length);
+                    ai_storage_not_full <= '1';
                else
-
-                    -- handle request addresses
-                    -- input from op buffer, we expect i_lwe_addr_valid = '1' for batchsize-many clock tics
-                    if i_lwe_addr_valid = '1' then
-                         lwe_in_addr_ram(to_integer(addr_buf_batchsize_in_cnt)) <= i_lwe_addr;
-                         if addr_buf_batchsize_in_cnt > 0 then
-                              addr_buf_batchsize_in_cnt <= addr_buf_batchsize_in_cnt - to_unsigned(1, addr_buf_batchsize_in_cnt'length);
-                         else
-                              addr_buf_batchsize_in_cnt <= to_unsigned(2*pbs_batchsize - 1, addr_buf_batchsize_in_cnt'length);
-                              ready_to_rq <= '1';
-                         end if;
-                    end if;
-
-                    read_pkg.arvalid <= do_request;
-                    read_pkg.araddr <= lwe_in_addr_ram(to_integer(rq_cnt)) + rq_addr_offset;
-                    if do_request = '1' then
-                         if rq_cnt > to_unsigned(0, rq_cnt'length) then
-                              rq_cnt <= rq_cnt - to_unsigned(1, rq_cnt'length);
-                         else
-                              rq_cnt <= to_unsigned(pbs_batchsize - 1, rq_cnt'length);
-                              init_done <= '1';
-                              enough_rqs_to_fill_ai_buf <= init_done;
-                              if rq_addr_offset < to_unsigned(ai_pkgs_per_lwe,rq_addr_offset'length) then
-                                   rq_addr_offset <= rq_addr_offset + to_unsigned(ai_hbm_bytes_per_clk, rq_addr_offset'length);
+                    -- there are two ping-pong-buffers: for the ai-values and for the lwe addresses.
+                    --   the latter is required because after the initial rotation op buffer already
+                    --   provides the addresses for the next batch and we still need the old addresses
+                    --   for the current iteration.
+                    -- input from op buffer
+                    -- we expect that the op buffer provides batchsize-many lwe addresses and then stops until the next batch
+                    if i_lwe_addr_valid='1' then
+                         if lwe_addr_ram_in_cnt = 0 then
+                              lwe_addr_ram_in_cnt <= to_unsigned(pbs_batchsize-1, lwe_addr_ram_in_cnt'length);
+                              addr_buf_full <= '1';
+                              if lwe_addr_ram_in_cnt_offset = 0 then
+                                   lwe_addr_ram_in_cnt_offset <= to_unsigned(pbs_batchsize,lwe_addr_ram_in_cnt_offset'length);
                               else
-                                   rq_addr_offset <= rq_addr_offset + to_unsigned(0, rq_addr_offset'length);
+                                   lwe_addr_ram_in_cnt_offset <= to_unsigned(0,lwe_addr_ram_in_cnt_offset'length);
+                              end if;
+                         else
+                              lwe_addr_ram_in_cnt <= lwe_addr_ram_in_cnt - to_unsigned(1, lwe_addr_ram_in_cnt'length);
+                              addr_buf_full <= '0';
+                         end if;
+                         lwe_in_addr_ram(to_integer(lwe_addr_ram_in_cnt+lwe_addr_ram_in_cnt_offset)) <= i_lwe_addr;
+                    end if;
+                    read_pkg.araddr <= lwe_in_addr_ram(to_integer(lwe_addr_ram_out_cnt+lwe_addr_ram_out_cnt_offset)) + rq_addr_offset;
+
+                    if out_part_cnt = to_unsigned(ai_hbm_coeffs_per_clk - 1, out_part_cnt'length) and out_batchsize_cnt=to_unsigned(pbs_batchsize-1,out_batchsize_cnt'length) then
+                         -- whole ping buffer processed --> allow requests again
+                         lwe_addr_ram_out_cnt <= to_unsigned(pbs_batchsize-1, lwe_addr_ram_out_cnt'length);
+                         ai_storage_not_full <= '1';
+                    else
+                         if addr_buf_full='1' then
+                              -- we have all ai addresses and can start requesting
+                              if i_hbm_ps_in_read_out_pkg(0).arready = '1' then
+                                   if lwe_addr_ram_out_cnt = 0 then
+                                        if rq_addr_offset = to_unsigned(ai_bytes_per_lwe-ai_hbm_bytes_per_clk,rq_addr_offset'length) then
+                                             rq_addr_offset <= to_unsigned(0, rq_addr_offset'length);
+                                             -- ping buffer now contains the last coefficients --> switch to pong buffer
+                                             if lwe_addr_ram_out_cnt_offset = 0 then
+                                                  lwe_addr_ram_out_cnt_offset <= to_unsigned(pbs_batchsize,lwe_addr_ram_out_cnt_offset'length);
+                                             else
+                                                  lwe_addr_ram_out_cnt_offset <= to_unsigned(0,lwe_addr_ram_out_cnt_offset'length);
+                                             end if;
+                                        else
+                                             rq_addr_offset <= rq_addr_offset + to_unsigned(ai_hbm_bytes_per_clk, rq_addr_offset'length);
+                                        end if;
+                                        ai_storage_not_full <= '0';
+                                   else
+                                        lwe_addr_ram_out_cnt <= lwe_addr_ram_out_cnt - to_unsigned(1, lwe_addr_ram_out_cnt'length);
+                                   end if;
                               end if;
                          end if;
-                    else
-                         if out_part_cnt = to_unsigned(ai_hbm_coeffs_per_clk - 1, out_part_cnt'length) and out_batchsize_cnt=to_unsigned(pbs_batchsize-1,out_batchsize_cnt'length) then
-                              -- whole ping buffer processed --> allow requests again
-                              enough_rqs_to_fill_ai_buf <= '0';
-                         end if;
                     end if;
+                    read_pkg.arvalid <= ai_storage_not_full and addr_buf_full;
                end if;
 
                if start_outputting = '1' then
                     -- ai is valid for a whole ciphertext, never change it during the time it is valid for
-                    if ai_val_valid_cnt > 0 then
-                         ai_val_valid_cnt <= ai_val_valid_cnt - to_unsigned(1, ai_val_valid_cnt'length);
-                    else
+                    if ai_val_valid_cnt = 0 then
                          ai_val_valid_cnt <= to_unsigned(clks_ai_valid - 1, ai_val_valid_cnt'length);
                          -- new ciphertext --> provide new ai-value --> out_batchsize_cnt enables that
-                         if out_batchsize_cnt > 0 then
-                              out_batchsize_cnt <= out_batchsize_cnt - to_unsigned(1, out_batchsize_cnt'length);
-                         else
+                         if out_batchsize_cnt = 0 then
                               out_batchsize_cnt <= to_unsigned(pbs_batchsize - 1, out_batchsize_cnt'length);
-                              if out_part_cnt > 0 then
-                                   out_part_cnt <= out_part_cnt - to_unsigned(1, out_part_cnt'length);
-                              else
+                              -- new batch iteration, take the next ai value of each cipertext
+                              if out_part_cnt = 0 then
                                    out_part_cnt <= to_unsigned(ai_hbm_coeffs_per_clk - 1, out_part_cnt'length);
                                    -- whole ai buffer was processed - switch the buffer
                                    if out_batchsize_cnt_offset = to_unsigned(0, out_batchsize_cnt_offset'length) then
@@ -198,8 +210,14 @@ begin
                                    else
                                         out_batchsize_cnt_offset <= to_unsigned(0, out_batchsize_cnt_offset'length);
                                    end if;
+                              else
+                                   out_part_cnt <= out_part_cnt - to_unsigned(1, out_part_cnt'length);
                               end if;
+                         else
+                              out_batchsize_cnt <= out_batchsize_cnt - to_unsigned(1, out_batchsize_cnt'length);
                          end if;
+                    else
+                         ai_val_valid_cnt <= ai_val_valid_cnt - to_unsigned(1, ai_val_valid_cnt'length);
                     end if;
                else
                     ai_val_valid_cnt <= to_unsigned(clks_ai_valid - 1, ai_val_valid_cnt'length);
@@ -232,16 +250,16 @@ begin
                else
                     -- receive logic
                     if i_hbm_ps_in_read_out_pkg(0).rvalid = '1' then
-                         if receive_sub_block_coeff_cnt > to_unsigned(num_sub_blocks_coeffs - 1, receive_sub_block_coeff_cnt'length) then
-                              receive_sub_block_coeff_cnt <= receive_sub_block_coeff_cnt + to_unsigned(ai_hbm_coeffs_per_clk, receive_sub_block_coeff_cnt'length);
-                         else
-                              receive_sub_block_coeff_cnt <= to_unsigned(0, receive_sub_block_coeff_cnt'length);
-                              if receive_cnt > 0 then
-                                   receive_cnt <= receive_cnt - to_unsigned(1, receive_cnt'length);
-                              else
+                         if receive_sub_block_coeff_cnt = 0 then
+                              receive_sub_block_coeff_cnt <= to_unsigned(num_sub_blocks_coeffs - 1, receive_sub_block_coeff_cnt'length);
+                              if receive_cnt = 0 then
                                    receive_cnt <= to_unsigned(2 * ping_buf_length - 1, receive_cnt'length);
                                    ready_to_output_buf(0) <= '1';
+                              else
+                                   receive_cnt <= receive_cnt - to_unsigned(1, receive_cnt'length);
                               end if;
+                         else
+                              receive_sub_block_coeff_cnt <= receive_sub_block_coeff_cnt - to_unsigned(ai_hbm_coeffs_per_clk, receive_sub_block_coeff_cnt'length);
                          end if;
                     end if;
                end if;

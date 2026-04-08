@@ -32,7 +32,7 @@ library work;
 
 package tfhe_constants is
 
-  constant use_pbs_fake : boolean := debug_mode; -- then blind-rotation output is just the input delayed. Useful when just checking synchronization.
+  constant use_pbs_fake : boolean := false;--debug_mode; -- then blind-rotation output is just the input delayed. Useful when just checking synchronization.
 
   constant use_end_step_input_buffer : boolean := false; -- experimental
   constant extra_latency_buf_extra_output_buffer : boolean := true; -- experimental, better for timing?
@@ -42,10 +42,11 @@ package tfhe_constants is
   constant lwe_n_buf_out_buffer      : boolean := false;
   constant use_intt_input_buffer     : boolean := false; -- experimental
   constant acc_buf_extra_output_buffer : boolean := true;  -- set to true for better timing
+  constant buffer_samp_extract_output   : boolean := false;  -- good against congestion
   constant buffer_samp_extract_input   : boolean := true;  -- good against congestion
   constant buffer_init_output          : boolean := true;  -- good against congestion
   constant buffer_blind_rot_output     : boolean := false; -- not good for congestion
-  constant use_hbm_output_buffer                 : boolean := false; -- leads to worse timing, around HBM just too much congestion
+  constant use_hbm_output_buffer                 : boolean := true; -- leads to worse timing, around HBM just too much congestion
   constant x_ai_minus_1_sub_buf_output_buffer : boolean := false; -- experimental, apparently worse for congestion
   constant buffer_blind_rot_input             : boolean := false; -- experimental, apparently worse for congestion
   constant use_decomp_res_output_buffer       : boolean := false; -- serves as the input buffer for the ntt
@@ -117,7 +118,7 @@ package tfhe_constants is
 
   -- decomposition
   constant initial_decomp_delay_without_end_reduction : integer := clks_per_64_bit_add_mod + (decomp_length - 1);
-  constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + easy_reduction_latency + 1 * boolean'pos(use_decomp_res_output_buffer) + 1 * boolean'pos(use_decomp_res_temp_buffer);
+  constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + 1 + 1 * boolean'pos(use_decomp_res_output_buffer) + 1 * boolean'pos(use_decomp_res_temp_buffer); -- +1 for conditional add at the end
 
   -- rotate polym
   constant rotate_polym_first_block_initial_delay : integer := 1 + rotate_polym_reorder_delay + buffer_answer_delay + rotate_polym_reset_clks_ahead; -- +1 because of stage 0
@@ -132,7 +133,7 @@ package tfhe_constants is
   constant blind_rot_iter_adder_tree_latency    : integer := blind_rot_iter_adder_tree_num_stages * adder_tree_clks_per_stage;
 
   -- ntt_out_buf
-  constant clks_till_ntt_out_buffer_ready : integer := ntt_clks_till_first_block_ready + num_polyms_per_rlwe_ciphertext * ntt_num_blocks_per_polym + pingpong_ram_retiming_latency + 1 * boolean'pos(use_ntt_out_buf_input_buffer);
+  constant clks_till_ntt_out_buffer_ready : integer := ntt_clks_till_first_block_ready + num_polyms_per_rlwe_ciphertext * ntt_num_blocks_per_polym + ntt_out_buf_ram_retiming_latency + 1 * boolean'pos(use_ntt_out_buf_input_buffer);
 
   -- blind rotation
   constant blind_rotation_decision_delay : integer := 1; -- is like an extra clock cycle of latency for the external product
@@ -146,7 +147,8 @@ package tfhe_constants is
   -- that is why we add extra stages and recompute all delays from there.
   constant blind_rot_iter_pipeline_steps_per_ciphertext   : integer := overall_throughput_num_blocks_per_polym * num_polyms_per_rlwe_ciphertext;
   constant blind_rot_iter_min_num_ciphertexts_in_pipeline : integer := integer(floor(real(blind_rot_iter_minimum_latency) / real(blind_rot_iter_pipeline_steps_per_ciphertext)));
-  constant blind_rot_iter_extra_latency                   : integer := (blind_rot_iter_pipeline_steps_per_ciphertext - (blind_rot_iter_minimum_latency - blind_rot_iter_min_num_ciphertexts_in_pipeline * blind_rot_iter_pipeline_steps_per_ciphertext) - blind_rotation_decision_delay) mod blind_rot_iter_pipeline_steps_per_ciphertext;
+  constant blind_rot_iter_extra_latency_raw               : integer := (blind_rot_iter_pipeline_steps_per_ciphertext - (blind_rot_iter_minimum_latency - blind_rot_iter_min_num_ciphertexts_in_pipeline * blind_rot_iter_pipeline_steps_per_ciphertext) - blind_rotation_decision_delay) mod blind_rot_iter_pipeline_steps_per_ciphertext;
+  constant blind_rot_iter_extra_latency                   : integer := blind_rot_iter_extra_latency_raw + blind_rot_iter_pipeline_steps_per_ciphertext*boolean'pos(blind_rot_iter_extra_latency_raw + initial_decomp_delay_first_block < ntt_num_clks_reset_early); -- need to ensure that the values do not arrive before the real reset
   constant blind_rot_iter_latency_till_elem_wise_mult     : integer := blind_rot_iter_min_latency_till_elem_wise_mult + blind_rot_iter_extra_latency;
   constant blind_rot_iter_latency_till_monomial_mult      : integer := blind_rot_iter_min_latency_till_monomial_mult + blind_rot_iter_extra_latency;
   constant blind_rot_iter_latency_till_ready_for_ai       : integer := blind_rot_iter_latency_till_monomial_mult;

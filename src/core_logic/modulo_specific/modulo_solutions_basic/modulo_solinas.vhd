@@ -23,7 +23,7 @@ library IEEE;
 library work;
      use work.datatypes_utils.all;
      use work.constants_utils.all;
-     -- use work.ntt_utils.overflow_reduced_num;
+     use work.ntt_utils.overflow_reduced_num;
 
      -- this computes: (a mod ntt_prime) via the solution presented in the Number Theoretic Transform (NTT) FPGA
      -- Accelerator paper by Austin Hartshorn et al. (HLW)
@@ -55,7 +55,6 @@ architecture Behavioral of modulo_solinas is
      signal temp_d_a_b       : signed(0 to a'length + 2 - 1); -- +1 for sign, +1 for underflowavoidance.  is between -2*(2^32 -1) and +(2^32 -1)
      signal d_expanded       : signed(0 to temp_d_a_b'length - 1);
      signal temp_b_c         : unsigned(0 to a'length + 1 - 1); -- +1 for overflowavoidance
-     signal temp_b_c_shifted : synthesiseable_uint_extended;
      signal temp_res         : synthesiseable_int_extended;
      signal res_buf : synthesiseable_uint;
      -- signal sign_bit: std_ulogic;
@@ -67,10 +66,6 @@ begin
      d_expanded(0)                          <= '0';             -- sign bit
      d_expanded(1 to d_expanded'length - 1) <= signed('0' & d); -- carry placeholder
 
-     temp_b_c_shifted(0 to temp_b_c'length - 1) <= temp_b_c(0 to temp_b_c'length - 1);
-     -- fill with zeros
-     temp_b_c_shifted(temp_b_c'length to temp_b_c_shifted'length - 1) <= to_unsigned(0, temp_b_c_shifted'length - temp_b_c'length);
-
      process (i_clk)
      begin
           if rising_edge(i_clk) then
@@ -78,22 +73,11 @@ begin
                temp_d_a_b <= (d_expanded - signed('0' & a)) - signed('0' & b);
                temp_b_c <= ('0' & b) + c;
                -- stage 1
-               temp_res <= signed('0' & temp_b_c_shifted) + temp_d_a_b; -- cannot have a carry but has 0 for the sign
-               -- temp_res <= signed(shift_left(resize(b,temp_res'length),32) + shift_left(resize(c,temp_res'length),32) + resize(d,temp_res'length) - resize(a,temp_res'length) - resize(b,temp_res'length));
-
-               -- -- stage 2
-               -- if temp_res(0) = '1' then -- if negative
-               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) + to_synth_int(p));
-               -- elsif temp_res > to_synth_int_extended(p) then
-               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1) - to_synth_int(p));
-               -- else
-               --      res_buf <= to_synth_uint(temp_res(1 to temp_res'length-1));
-               -- end if;
+               temp_res(temp_res'length-32 to temp_res'length - 1) <= temp_d_a_b(temp_d_a_b'length-32 to temp_d_a_b'length-1);
+               temp_res(0 to temp_res'length-32-1) <= signed('0' & temp_b_c) + temp_d_a_b(0 to temp_d_a_b'length-32-1); -- cannot have a carry but has 0 for the sign
           end if;
      end process;
 
-     -- sign_bit <= temp_res(0);
-     -- overflow_bit <= temp_res(1);
      temp_res_core <= unsigned(temp_res(2 to temp_res'length-1));
 
      partial: if use_partial_reduction generate
@@ -101,6 +85,13 @@ begin
           begin
             if rising_edge(i_clk) then
                -- stage 2
+               -- if temp_res(1) = '1' then
+               --      res_buf <= temp_res_core + overflow_reduced_num; -- is not an advantage here, Vivado cannot simply switch between addition and substraction of p
+               --      -- res_buf <= temp_res_core - p;
+               --      -- its actually ok to leave the negative value be, the result is processed in a way that mod p its still valid, but it does not help with performance here
+               -- else
+               --      res_buf <= temp_res_core;
+               -- end if;
                if temp_res(0) = '1' then -- if negative
                     res_buf <= temp_res_core + p; -- we know the result is positive, so we can ignore the sign bit
                elsif temp_res(1) = '1' then

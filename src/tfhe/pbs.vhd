@@ -104,6 +104,8 @@ architecture Behavioral of pbs is
      signal blind_rotate_output_buf    : sub_polynom(0 to throughput - 1);
      signal sample_extract_reset   : std_ulogic;
      signal sample_extract_reset_buf   : std_ulogic;
+     signal samp_extract_output    : sub_polynom(0 to throughput - 1);
+     signal next_module_reset_buf   : std_ulogic;
 
      -- signal samp_extract_idx : rotate_idx;
      -- signal samp_extract_idx_buf : rotate_idx;
@@ -197,9 +199,23 @@ begin
                i_reset             => sample_extract_reset_buf,
                i_sub_polym         => blind_rotate_output_buf,
                i_rotate_by         => sample_extract_idx,
-               o_result            => o_result,
-               o_next_module_reset => o_next_module_reset
+               o_result            => samp_extract_output,
+               o_next_module_reset => next_module_reset_buf
           );
+     
+     out_buf: if buffer_samp_extract_output generate
+     process (i_clk) is
+     begin
+          if rising_edge(i_clk) then
+          o_result <= samp_extract_output;
+          o_next_module_reset <= next_module_reset_buf;
+          end if;
+     end process;
+     end generate;
+     no_out_buf: if not buffer_samp_extract_output generate
+          o_result <= samp_extract_output;
+          o_next_module_reset <= next_module_reset_buf;
+     end generate;
 
      -- process (i_clk)
      -- begin

@@ -89,9 +89,8 @@ architecture Behavioral of karazuba_mult is
 
      signal p123 : unsigned(0 to 2 * base_len - 1); -- p3=p1+p2+a1*b0+a0*b1 --> p3-(p1+p2) is always positive here
 
-     signal p1_wait_reg_2      : full_reg;
-     signal p1_wait_reg_3      : full_reg;
-     signal p2_lower_wait_regs : half_reg_wait_regs(0 to 3 - 1);
+     signal p1_wait_regs: full_reg_wait_regs(0 to 2+1*boolean'pos(use_mult_karazuba_add_buffer)-1);
+     signal p2_lower_wait_regs : half_reg_wait_regs(0 to 3+1*boolean'pos(use_mult_karazuba_add_buffer) - 1);
      signal p2_lower_wait_regs_end : half_reg;
      signal p2_lower_wait_regs_cnt: unsigned(0 to get_bit_length(p2_lower_wait_regs'length-1-1)-1) := to_unsigned(p2_lower_wait_regs'length-1-1,get_bit_length(p2_lower_wait_regs'length-1-1)); -- another -1 because end part handles separately
 
@@ -99,6 +98,9 @@ architecture Behavioral of karazuba_mult is
 
      signal num0_buf: unsigned(0 to i_num0'length - 1);
      signal num1_buf: unsigned(0 to i_num1'length - 1);
+     signal a1_plus_a0_buf: unsigned(0 to a1_plus_a0'length-1);
+     signal b1_plus_b0_buf: unsigned(0 to b1_plus_b0'length-1);
+     signal p1_plus_p2_minus_p2upper_buf: unsigned(0 to p1_plus_p2_minus_p2upper'length-1);
 
 begin
 
@@ -153,15 +155,31 @@ begin
           );
      p3_mult: mult_dsp_level
           generic map (
-               base_len            => a1_plus_a0'length,
+               base_len            => a1_plus_a0_buf'length,
                dsp_retiming_length => dsp_retiming_length
           )
           port map (
                i_clk  => i_clk,
-               i_num0 => a1_plus_a0,
-               i_num1 => b1_plus_b0,
+               i_num0 => a1_plus_a0_buf,
+               i_num1 => b1_plus_b0_buf,
                o_res  => p3
           );
+
+     add_bufs: if use_mult_karazuba_add_buffer generate
+          process (i_clk) is
+          begin
+          if rising_edge(i_clk) then
+               a1_plus_a0_buf <= a1_plus_a0;
+               b1_plus_b0_buf <= b1_plus_b0;
+               p1_plus_p2_minus_p2upper_buf <= p1_plus_p2_minus_p2upper;
+          end if;
+          end process;
+     end generate;
+     no_add_bufs: if not use_mult_karazuba_add_buffer generate
+          a1_plus_a0_buf <= a1_plus_a0;
+          b1_plus_b0_buf <= b1_plus_b0;
+          p1_plus_p2_minus_p2upper_buf <= p1_plus_p2_minus_p2upper;
+     end generate;
 
      process (i_clk)
      begin
@@ -174,16 +192,15 @@ begin
                -- p1 and p2 finish one tic earlier than p3
                -- use that time to calculate p1+p2-p2_upper
                p1_plus_p2_minus_p2upper <= ('0' & p1) + p2 - p2(0 to base_len - 1); -- extend one operand for the carry bit
-               p1_wait_reg_2 <= p1;
+               p1_wait_regs <= p1 & p1_wait_regs(0 to p1_wait_regs'length - 2);
 
                -- stage x
                -- p3 is there
-               p123_temp <= p3 - p1_plus_p2_minus_p2upper;
-               p1_wait_reg_3 <= p1_wait_reg_2;
+               p123_temp <= p3 - p1_plus_p2_minus_p2upper_buf;
 
                -- stage x+1
                p123_temp_lower_buf <= p123_temp_lower;
-               p123 <= p1_wait_reg_3 + p123_temp_upper;
+               p123 <= p1_wait_regs(p1_wait_regs'length-1) + p123_temp_upper;
           end if;
      end process;
 

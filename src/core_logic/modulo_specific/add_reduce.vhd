@@ -43,6 +43,8 @@ architecture Behavioral of add_reduce is
 
      signal temp_res     : synthesiseable_uint_extended;
      signal result_buffer: synthesiseable_uint;
+     signal num0_buf: synthesiseable_uint;
+     signal num1_buf: synthesiseable_uint;
 
 begin
 
@@ -57,17 +59,25 @@ begin
      no_out_buf: if not use_easy_red_out_buffer generate
           o_result <= result_buffer;
      end generate;
+     do_in_buf: if use_easy_red_in_buffer generate
+          process (i_clk)
+          begin
+               if rising_edge(i_clk) then
+                    num0_buf <= i_num0;
+                    num1_buf <= i_num1;
+               end if;
+          end process;
+     end generate;
+     no_in_buf: if not use_easy_red_in_buffer generate
+          num0_buf <= i_num0;
+          num1_buf <= i_num1;
+     end generate;
 
      sub: if substraction generate
           process (i_clk)
           begin
                if rising_edge(i_clk) then
-                    temp_res <= ('0' & i_num0) - i_num1; -- extend for the sign bit
-                    if temp_res(0) = '1' then
-                         result_buffer <= temp_res(1 to temp_res'length-1) + modulus;
-                    else
-                         result_buffer <= temp_res(1 to temp_res'length-1);
-                    end if;
+                    temp_res <= ('0' & num0_buf) - num1_buf; -- extend for the sign bit
                end if;
           end process;
      end generate;
@@ -75,10 +85,25 @@ begin
           process (i_clk)
           begin
                if rising_edge(i_clk) then
-                    temp_res <= ('0' & i_num0) + i_num1; -- extend for the carry bit
+                    temp_res <= ('0' & num0_buf) + num1_buf; -- extend for the carry bit
                end if;
           end process;
-          partial: if use_partial_reduction generate
+     end generate;
+
+     partial: if use_partial_reduction generate
+          sub: if substraction generate
+               process (i_clk)
+               begin
+                    if rising_edge(i_clk) then
+                         if temp_res(0) = '1' then
+                              result_buffer <= temp_res(1 to temp_res'length-1) + modulus;
+                         else
+                              result_buffer <= temp_res(1 to temp_res'length-1);
+                         end if;
+                    end if;
+               end process;
+          end generate;
+          add: if not substraction generate
                process (i_clk)
                begin
                     if rising_edge(i_clk) then
@@ -91,7 +116,22 @@ begin
                     end if;
                end process;
           end generate;
-          not_partial: if not use_partial_reduction generate
+     end generate;
+
+     complete: if not use_partial_reduction generate
+          sub: if substraction generate
+               process (i_clk)
+               begin
+                    if rising_edge(i_clk) then
+                         if temp_res(0) = '1' then
+                              result_buffer <= temp_res(1 to temp_res'length-1) + modulus;
+                         else
+                              result_buffer <= temp_res(1 to temp_res'length-1);
+                         end if;
+                    end if;
+               end process;
+          end generate;
+          add: if not substraction generate
                process (i_clk)
                begin
                     if rising_edge(i_clk) then

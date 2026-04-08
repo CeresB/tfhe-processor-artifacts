@@ -41,8 +41,7 @@ architecture Behavioral of tfhe_pbs_accelerator_tb is
                i_clk               : in  std_ulogic;
                i_reset_n           : in  std_ulogic;
                i_ram_coeff_idx     : in  unsigned(0 to write_blocks_in_lwe_n_ram_bit_length - 1);
-               o_return_address    : out hbm_ps_port_memory_address;
-               o_out_valid         : out std_ulogic;
+               -- o_return_address    : out hbm_ps_port_memory_address;
                o_out_data          : out sub_polynom(0 to pbs_throughput - 1);
                o_next_module_reset : out std_ulogic;
                -- hbm related in / out signals
@@ -114,8 +113,7 @@ begin
                i_op_hbm_out        => read_out_pkgs_stack_1(channel_op_idx),
                i_lut_hbm_out       => read_out_pkgs_stack_1(channel_lut_idx),
                i_b_hbm_out         => read_out_pkgs_stack_1(channel_b_idx),
-               o_out_valid         => open, --lwe_n_buf_out_valid,
-               o_return_address    => open,
+               -- o_return_address    => open,
                o_out_data          => open, --lwe_n_buf_out,
                o_next_module_reset => open, --lwe_n_buf_write_next_reset,
                o_ai_hbm_in         => ai_hbm_in,
@@ -154,7 +152,12 @@ begin
 
      bsk_channel_map: for channel_idx in 0 to bsk_hbm_out'length - 1 generate
           bsk_hbm_out(channel_idx).rdata        <= all_in_raw_reversed;
-          bsk_hbm_out(channel_idx).rvalid       <= bsk_hbm_in(channel_idx).arvalid;
+          process (clk) is
+          begin
+            if rising_edge(clk) then
+               bsk_hbm_out(channel_idx).rvalid       <= bsk_hbm_in(channel_idx).arvalid;
+            end if;
+          end process;
           bsk_hbm_out(channel_idx).arready      <= '1';
           bsk_hbm_out(channel_idx).rdata_parity <= (others => '0');
           bsk_hbm_out(channel_idx).rid          <= std_logic_vector(to_unsigned(clk_cnt, hbm_id_bit_width));
@@ -176,7 +179,12 @@ begin
           if_lut_buf: if channel_idx = channel_lut_idx generate
                read_out_pkgs_stack_1(channel_idx).rdata <= all_in_raw_reversed;
           end generate;
-          read_out_pkgs_stack_1(channel_idx).rvalid       <= read_in_pkgs_stack_1(channel_idx).arvalid;
+          process (clk) is
+          begin
+            if rising_edge(clk) then
+               read_out_pkgs_stack_1(channel_idx).rvalid       <= read_in_pkgs_stack_1(channel_idx).arvalid;
+            end if;
+          end process;
           read_out_pkgs_stack_1(channel_idx).arready      <= '1';
           read_out_pkgs_stack_1(channel_idx).rdata_parity <= (others => '0');
           read_out_pkgs_stack_1(channel_idx).rid          <= std_logic_vector(to_unsigned(clk_cnt, hbm_id_bit_width));

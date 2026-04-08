@@ -84,7 +84,7 @@ architecture Behavioral of rotate_polym_with_buffer is
      signal rotate_input                 : sub_polynom(0 to throughput - 1);
      signal rotate_reset                 : std_ulogic;
      signal rotate_reset_from_buffer     : std_ulogic;
-     constant rotate_by_length : integer := (num_coefficients / throughput) - rotate_polym_reset_clks_ahead - 1 + 1 + (counter_buffer_len - 1); -- clks till rotate_buffer drops next_stage reset. -1 because of rotate_by_bufferchain_end, +1 to compute index_plus_ai_reduced
+     constant rotate_by_length : integer := (num_coefficients / throughput) - rotate_polym_reset_clks_ahead - 1 + 1; -- clks till rotate_buffer drops next_stage reset. -1 because of rotate_by_bufferchain_end, +1 to compute index_plus_ai_reduced
      signal rotate_by_bufferchain     : rotate_idx_array(0 to get_max(1, rotate_by_length) - 1);
      
      signal rotate_by_bufferchain_end : rotate_idx;
