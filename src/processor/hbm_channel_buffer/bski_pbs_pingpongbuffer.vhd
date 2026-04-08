@@ -312,6 +312,12 @@ begin
                bski_buf_input(coeff_idx*num_sub_blocks+sub_block_idx) <= hbm_part(coeff_idx);
           end generate;
      end generate;
+     -- ignore excess coefficients when not all of the hbm stack is needed
+     map_hbm_out_to_buf_input: for coeff_idx in 0 to hbm_part'length-1 generate
+          coeff_spread: for sub_block_idx in 0 to num_sub_blocks-1 generate
+               bski_buf_input(coeff_idx*num_sub_blocks+sub_block_idx) <= hbm_part(coeff_idx);
+          end generate;
+     end generate;
 
      -- when reading from the buffer treat all hbm-channel-buffers like one
      initial_latency_counter: one_time_counter

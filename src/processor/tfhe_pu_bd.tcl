@@ -358,6 +358,27 @@ proc create_root_design { parentCell } {
   set_property CONFIG.CDC_TYPE {xpm_cdc_async_rst} $xpm_cdc_gen_1
 
 
+  # Create instance: smartconnect_0, and set properties
+  set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
+  set_property CONFIG.NUM_MI {6} $smartconnect_0
+
+
+  # Create instance: smartconnect_1, and set properties
+  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_1 ]
+  set_property -dict [list \
+    CONFIG.NUM_MI {16} \
+    CONFIG.NUM_SI {1} \
+  ] $smartconnect_1
+
+
+  # Create instance: xpm_cdc_gen_0, and set properties
+  set xpm_cdc_gen_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xpm_cdc_gen:1.0 xpm_cdc_gen_0 ]
+
+  # Create instance: util_ds_buf_0, and set properties
+  set util_ds_buf_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0 ]
+  set_property CONFIG.DIFF_CLK_IN_BOARD_INTERFACE {pcie_refclk} $util_ds_buf_0
+
+
   # Create interface connections
   connect_bd_intf_net -intf_net axi_clock_converter_0_M_AXI [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins axi_clock_converter_0/M_AXI]
   connect_bd_intf_net -intf_net axi_clock_converter_1_M_AXI [get_bd_intf_pins tfhe_block_0/s00_axi] [get_bd_intf_pins axi_clock_converter_1/M_AXI]
@@ -432,6 +453,8 @@ proc create_root_design { parentCell } {
   [get_bd_pins axi_clock_converter_1/m_axi_aresetn] \
   [get_bd_pins tfhe_block_0/s00_axi_aresetn] \
   [get_bd_pins tfhe_block_0/AXI_ARESET_N]
+  connect_bd_net -net xpm_cdc_gen_0_dest_out  [get_bd_pins xpm_cdc_gen_0/dest_out] \
+  [get_bd_pins tfhe_block_0/APB_0_PRESET_N]
 
   # Create address segments
   assign_bd_address -offset 0x00000000 -range 0x20000000 -with_name SEG_tfhe_block_0_reg0 -target_address_space [get_bd_addr_spaces xdma_1/M_AXI] [get_bd_addr_segs tfhe_block_0/AXI_00/reg0] -force
@@ -491,6 +514,8 @@ CONFIG.USER_XSDB_INTF_EN {FALSE} \
 
 create_root_design ""
 
+# set tfhe_pu_top as top module
+set_property top tfhe_pu_top [current_fileset]
 
 # set tfhe_pu_top as top module
 set_property top tfhe_pu_top [current_fileset]
