@@ -49,7 +49,7 @@ package constants_utils is
   constant log2coeffs_per_lutram : integer := 6;
 
   -- values you may change
-  constant log2_num_coefficients                : integer := 10;                                                                                                                --10
+  constant log2_num_coefficients                : integer := 11;                                                                                                                --10
   constant log2_ntt_throughput                  : integer := 4;                                                                                                                 --5;
   constant ntt_modulo_solution                  : integer := ntt_modulo_solution_default * boolean'pos(debug_mode) + ntt_modulo_solution_solinas * boolean'pos(not debug_mode); -- ntt_modulo_solution_solinas, ntt_modulo_solution_default
   constant use_karazuba                         : boolean := not debug_mode;                                                                                                    -- karazuba is only implemented for unsigned_polym_coefficient_bit_width=64. If false, default mult is used, which works for any bit width.
@@ -103,7 +103,7 @@ package constants_utils is
   constant clks_per_64_bit_mult : integer := boolean'pos(not use_karazuba) * mult_64_default_retiming_registers + boolean'pos(use_karazuba) * karazuba_64_mult_latency; -- mult of two 64-bit values = 16 18-bit-multiplications (and 16 carry additions) + adder tree (3 36-bit adds per 36-output-bits. Have 128-bit result --> 12 adds + 4 carry adds = 32 DSP "calls". Computung depth: 1+16+4
 
   -- values you may change if you did the underlying changes to the HDL code
-  constant ntt_params_list_length                 : integer := 16;
+  constant ntt_params_list_length                 : integer := 17;
   constant log2_num_samples_per_butterfly         : integer := 1;                                             -- since the architecture only supports one twiddle factor per butterfly there is a lot to do if you want to change this value
   -- latency-related constants
   -- latency is measured from the clock tic where the module has the first valid input
@@ -114,7 +114,7 @@ package constants_utils is
   constant default_modulo_latency                 : integer := output_writing_latency;
   constant solinas_ab_mod_p_latency               : integer := solinas_modulo_latency + clks_per_64_bit_mult;
   constant default_ab_mod_p_latency               : integer := default_modulo_latency + clks_per_64_bit_mult; -- no in_out_latency here
-  constant easy_reduction_latency                 : integer := 1 + 1 * boolean'pos(use_easy_red_out_buffer) + 1*boolean'pos(use_easy_red_in_buffer);  -- +1 to decide which of the 2 values to take
+  constant easy_reduction_latency                 : integer := clks_per_64_bit_add + 1 * boolean'pos(use_easy_red_out_buffer) + 1*boolean'pos(use_easy_red_in_buffer);
   constant clks_per_64_bit_add_mod                : integer := clks_per_64_bit_add + easy_reduction_latency;
   constant clks_per_butterfly_without_mult_modulo : integer := clks_per_64_bit_add_mod + 1 * boolean'pos(ntt_butterfly_in_bufs) + 1 * boolean'pos(ntt_butterfly_out_bufs);
 

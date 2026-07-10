@@ -2,8 +2,9 @@
 # Open-Source TFHE Accelerator (tfhe-PU)
 
 <img align="right" width="400" height="auto" alt="" src="images/tfhe-proc.png"/> This repository accompanies the paper [**“REDACTED”**]().  
-The design is written in a mix of **VHDL** and **SystemVerilog**, compatible with **Vivado 2024.1**.
-This is a fully fledged, parameterizable TFHE processor that connects via PCIe, enabling scalable, hardware-accelerated computation directly on encrypted data, achieving 240-480% higher bootstrapping throughput than current state-of-the-art designs. Hopefully, this will lay the foundation for the next generation of TFHE processors - moving us closer to practical, high-performance encrypted computing.   
+The design is written in a mix of **VHDL** and **SystemVerilog**, compatible with **Vivado 2025.1**.
+This is a fully fledged, parameterizable TFHE processor that connects via PCIe, enabling scalable, hardware-accelerated computation directly on encrypted data, achieving up to 7x higher throughput and much better latency than an AMD 7950X3D CPU using all cores.
+Hopefully, this will lay the foundation for the next generation of TFHE processors - moving us closer to practical, high-performance encrypted computing.   
 
 All content is for **academic research only**, provided *as is* without warranty.
 
@@ -78,19 +79,6 @@ Defined in `ntt_configuration.vhd` and `constants_utils.vhd`:
 Use `ntt_param_computation.ipynb` to generate new constants, then update `ntt_params` accordingly.  
 If changing bit widths or primes, define a matching reduction in `modulo_specific/` and verify correctness via simulation (`new_ntt_tb.vhd`).
 
-
-
-## TFHE Processor
-
-The repository implements major TFHE modules, including **programmable bootstrapping** and **key switching**, built upon the NTT engine.  
-To use them, include all VHDL files from `core_logic/`, `tfhe/`, and `processor/`.
-
-For details on architecture and performance, see the [paper](https://arxiv.org/abs/2510.23483).
-
-
-## Measurements
-
-When evaluating frequency or resource usage, review Vivado implementation warnings — especially for Karatsuba multipliers and mid-stage optimizations in the negacyclic NTT.
 
 
 ## Contributing

@@ -132,6 +132,12 @@ package ntt_prime_list_pair is
                --n               => 2 ** 16,
                n_invers     => to_synth_uint(0),
                omega        => to_synth_uint(0),
+               omega_invers => to_synth_uint(0)),
+          (
+               -- NO PARAMS FOUND
+               --n               => 2 ** 17,
+               n_invers     => to_synth_uint(0),
+               omega        => to_synth_uint(0),
                omega_invers => to_synth_uint(0))
      );
      constant params_prime7681 : prime_list_pair := (
@@ -220,7 +226,12 @@ package ntt_prime_list_pair is
                --n               => 2 ** 16,
                n_invers     => x"fffeffff00010001",
                omega        => x"0002401e7e09d2c9",
-               omega_invers => x"425e7179e087e0e1")
+               omega_invers => x"425e7179e087e0e1"),
+          (
+               --n               => 2 ** 17,
+               n_invers     => x"ffff7fff00008001",
+               omega        => x"0001403cd7fb865d",
+               omega_invers => x"4dc246e77ddb705a")
      );
 
      function ntt_params_binary_list_to_synthesisable_int(

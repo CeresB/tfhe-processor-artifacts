@@ -99,8 +99,8 @@ architecture Behavioral of tfhe_pbs_accelerator is
       i_reset              : in  std_ulogic;
       i_lookup_table_part  : in  sub_polynom(0 to throughput - 1); -- for the programmable bootstrapping, only a part of an RLWE ciphertext
       i_lwe_b              : in  rotate_idx;
-      i_lwe_ai             : in  rotate_idx;
-      i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
+      i_lwe_ai             : in  rotate_idx_array(0 to br_unrolling_factor-1);
+      i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext * br_unrolling_factor - 1);
       -- i_sample_extract_idx : in  idx_int;
       -- o_sample_extract_idx : out idx_int;
       o_result             : out sub_polynom(0 to throughput - 1);
@@ -175,6 +175,7 @@ architecture Behavioral of tfhe_pbs_accelerator is
   signal bsk_i_part                   : sub_polynom(0 to pbs_throughput * decomp_length * num_polyms_per_rlwe_ciphertext - 1);
   signal pbs_result                   : sub_polynom(0 to pbs_throughput - 1);
   signal ai                           : rotate_idx;
+  signal ai_vec                       : rotate_idx_array(0 to br_unrolling_factor-1);
   signal pbs_lut_part                 : sub_polynom(0 to pbs_throughput - 1);
   -- signal pbs_b_extract_idx            : idx_int;
 
@@ -281,6 +282,7 @@ begin
       o_ready_to_output => b_storage_ready
     );
 
+  ai_vec(0) <= ai;
   pbs_computation: pbs
     generic map (
       throughput                     => pbs_throughput,
@@ -296,7 +298,7 @@ begin
       i_reset              => pbs_reset_ram_retiming_chain(pbs_reset_ram_retiming_chain'length - 1),
       i_lookup_table_part  => pbs_lut_part,
       i_lwe_b              => pbs_lwe_b,
-      i_lwe_ai             => ai,
+      i_lwe_ai             => ai_vec,
       i_BSK_i_part         => bsk_i_part,
       -- i_sample_extract_idx => current_sample_extract_idx,
       -- o_sample_extract_idx => pbs_b_extract_idx,

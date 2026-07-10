@@ -60,9 +60,9 @@ architecture Behavioral of top_blind_rotate is
           port (
                i_clk               : in  std_ulogic;
                i_reset             : in  std_ulogic;
-               i_lwe_ai            : in  rotate_idx;
+               i_lwe_ai            : in  rotate_idx_array(0 to br_unrolling_factor-1);
                i_acc_part          : in  sub_polynom(0 to throughput - 1);
-               i_BSK_i_part        : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
+               i_BSK_i_part        : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext * br_unrolling_factor - 1);
                o_result            : out sub_polynom(0 to throughput - 1);
                o_next_module_reset : out std_ulogic
           );
@@ -109,10 +109,10 @@ architecture Behavioral of top_blind_rotate is
      signal br_input  : sub_polynom(0 to throughput - 1);
      signal br_result : sub_polynom(0 to throughput - 1);
 
-     signal ai     : rotate_idx;
-     signal ai_raw : synthesiseable_uint;
+     signal ai     : rotate_idx_array(0 to br_unrolling_factor-1);
+     signal ai_raw : wait_registers_uint(0 to ai'length-1);
 
-     signal bsk_i_part : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext - 1);
+     signal bski_part : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext * br_unrolling_factor - 1);
      -- constant bski_num_coeffs: integer := num_polyms_per_rlwe_ciphertext * decomp_length * num_coefficients;
      constant bski_ram_num_coeffs  : integer := 2 ** log2_coeffs_per_bram; --num_coefficients / throughput;
      constant input_ram_num_coeffs : integer := 2 ** (log2_coeffs_per_bram - 1);
@@ -133,13 +133,13 @@ architecture Behavioral of top_blind_rotate is
      -- the reset needs to travel across the whole fpga and steer many bits there, so buffer it a lot
      signal reset : std_ulogic_vector(0 to 150 - 1) := (others => '1');
 
-     constant bski_ram_content  : sub_polynom(0 to bsk_i_part'length * bski_ram_num_coeffs - 1) := get_random_test_sub_polym(bsk_i_part'length * bski_ram_num_coeffs, 123);
+     constant bski_ram_content  : sub_polynom(0 to bski_part'length * bski_ram_num_coeffs - 1) := get_random_test_sub_polym(bski_part'length * bski_ram_num_coeffs, 123);
      constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1)       := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234);
      constant ai_ram_content    : sub_polynom(0 to ai_ram_num_coeffs - 1)                       := get_random_test_sub_polym(ai_ram_num_coeffs, 12345);
 
      attribute dont_touch               : string;
      attribute dont_touch of br_result  : signal is "true";
-     attribute dont_touch of bsk_i_part : signal is "true";
+     attribute dont_touch of bski_part : signal is "true";
 
 begin
 
@@ -183,7 +183,7 @@ begin
                i_reset             => reset(reset'length - 1),
                i_acc_part          => br_input,
                i_lwe_ai            => ai,
-               i_BSK_i_part        => bsk_i_part,
+               i_BSK_i_part        => bski_part,
                o_result            => br_result,
                o_next_module_reset => open
           );
@@ -252,7 +252,7 @@ begin
                );
      end generate;
 
-     bski_ram_blocks: for bski_coeff_idx in 0 to bsk_i_part'length - 1 generate
+     bski_ram_blocks: for bski_coeff_idx in 0 to bski_part'length - 1 generate
           bski_ram: manual_constant_bram
                generic map (
                     ram_content         => bski_ram_content(bski_coeff_idx * bski_ram_num_coeffs to (bski_coeff_idx + 1) * bski_ram_num_coeffs - 1),
@@ -263,22 +263,25 @@ begin
                port map (
                     i_clk     => clk_signal,
                     i_rd_addr => bsk_coeff_cnt(bsk_coeff_cnt'length - 1),
-                    o_data    => bsk_i_part(bski_coeff_idx)
+                    o_data    => bski_part(bski_coeff_idx)
                );
      end generate;
 
-     ai_ram: manual_constant_bram
-          generic map (
-               ram_content         => ai_ram_content,
-               addr_length         => ai_coeff_cnt(0)'length,
-               ram_out_bufs_length => default_ram_retiming_latency,
-               ram_type            => ram_style_auto
-          )
-          port map (
-               i_clk     => clk_signal,
-               i_rd_addr => ai_coeff_cnt(ai_coeff_cnt'length - 1),
-               o_data    => ai_raw
-          );
-     ai <= ai_raw(ai_raw'length - ai'length to ai_raw'length - 1);
+     ai_ram_blocks: for ai_coeff_idx in 0 to ai'length - 1 generate
+          ai_ram: manual_constant_bram
+               generic map (
+                    ram_content         => ai_ram_content,
+                    addr_length         => ai_coeff_cnt(0)'length,
+                    ram_out_bufs_length => default_ram_retiming_latency,
+                    ram_type            => ram_style_auto
+               )
+               port map (
+                    i_clk     => clk_signal,
+                    i_rd_addr => ai_coeff_cnt(ai_coeff_cnt'length - 1),
+                    o_data    => ai_raw(ai_coeff_idx)
+               );
+          ai(ai_coeff_idx) <= ai_raw(ai_coeff_idx)(ai_raw(0)'length - ai(0)'length to ai_raw(0)'length - 1);
+     end generate;
+
 
 end architecture;

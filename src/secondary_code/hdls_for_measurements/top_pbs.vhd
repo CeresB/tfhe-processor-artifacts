@@ -64,8 +64,8 @@ architecture Behavioral of top is
                i_reset              : in  std_ulogic;
                i_lookup_table_part  : in  sub_polynom(0 to throughput - 1); -- for the programmable bootstrapping, only a part of an RLWE ciphertext
                i_lwe_b              : in  rotate_idx;
-               i_lwe_ai             : in  rotate_idx;
-               i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
+               i_lwe_ai            : in  rotate_idx_array(0 to br_unrolling_factor-1);
+               i_BSK_i_part        : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext * br_unrolling_factor - 1);
                -- i_sample_extract_idx : in  idx_int;
                -- o_sample_extract_idx : out idx_int;
                o_result             : out sub_polynom(0 to throughput - 1);
@@ -113,19 +113,20 @@ architecture Behavioral of top is
 
      signal pbs_lut  : sub_polynom(0 to throughput - 1);
 
-     signal ai     : rotate_idx;
-     signal ai_raw : synthesiseable_uint;
+     signal ai     : rotate_idx_array(0 to br_unrolling_factor-1);
+     signal ai_raw : wait_registers_uint(0 to ai'length-1);
      signal b_val : rotate_idx;
      signal b_val_raw : synthesiseable_uint;
 
-     signal bsk_i_part : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext - 1);
+     signal bski_part : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext * br_unrolling_factor - 1);
+     signal bski_part_buf : sub_polynom(0 to bski_part'length - 1);
      -- constant bski_num_coeffs: integer := num_polyms_per_rlwe_ciphertext * decomp_length * num_coefficients;
      constant bski_ram_num_coeffs  : integer := 2 ** log2_coeffs_per_bram; --num_coefficients / throughput;
      constant input_ram_num_coeffs : integer := 2 ** (log2_coeffs_per_bram);
      constant ai_ram_num_coeffs    : integer := 2 ** (log2_coeffs_per_bram - 2);
      constant b_ram_num_coeffs    : integer := 2 * pbs_batchsize;
-     constant cnt_buffer_length    : integer := 2;
-     constant extra_buf_retiming_latency    : integer := 0;
+     constant cnt_buffer_length    : integer := 3;
+     constant extra_buf_retiming_latency    : integer := 1;
 
      type br_in_coeff_cnt_type is array (natural range <>) of unsigned(0 to get_bit_length(input_ram_num_coeffs - 1) - 1);
      signal br_in_coeff_cnt : br_in_coeff_cnt_type(0 to cnt_buffer_length - 1);
@@ -138,7 +139,7 @@ architecture Behavioral of top is
 
      signal reset : std_ulogic_vector(0 to 15 - 1) := (others => '1');
 
-     constant bski_ram_content  : sub_polynom(0 to bsk_i_part'length * bski_ram_num_coeffs - 1) := get_random_test_sub_polym(bsk_i_part'length * bski_ram_num_coeffs, 123);
+     constant bski_ram_content  : sub_polynom(0 to bski_part'length * bski_ram_num_coeffs - 1) := get_random_test_sub_polym(bski_part'length * bski_ram_num_coeffs, 123);
      constant input_ram_content : sub_polynom(0 to throughput * input_ram_num_coeffs - 1)       := get_random_test_sub_polym(throughput * input_ram_num_coeffs, 1234);
      constant ai_ram_content    : sub_polynom(0 to ai_ram_num_coeffs - 1)                       := get_random_test_sub_polym(ai_ram_num_coeffs, 12345);
      constant b_ram_content    : sub_polynom(0 to b_ram_num_coeffs - 1)                       := get_random_test_sub_polym(b_ram_num_coeffs, 6789);
@@ -152,9 +153,9 @@ architecture Behavioral of top is
 
      signal led_secondary : std_logic_vector(num_other_leds - 1 downto 0) := (others => 'U');
 
-     attribute dont_touch               : string;
-     attribute dont_touch of pbs_result  : signal is "true";
-     attribute dont_touch of bsk_i_part : signal is "true";
+     -- attribute dont_touch               : string;
+     -- attribute dont_touch of pbs_result  : signal is "true";
+     -- attribute dont_touch of bski_part : signal is "true";
 
 begin
 
@@ -199,7 +200,7 @@ begin
                i_lookup_table_part  => pbs_lookup_table_part_buffer,
                i_lwe_b              => b_val,
                i_lwe_ai             => ai,
-               i_BSK_i_part         => bsk_i_part,
+               i_BSK_i_part         => bski_part_buf,
                -- i_sample_extract_idx => sample_extract_default_sample_extract_idx,
                -- o_sample_extract_idx => open,
                o_result             => pbs_result,
@@ -261,6 +262,7 @@ begin
                reset(0) <= '0';
                reset(1 to reset'length - 1) <= reset(0 to reset'length - 2);
                pbs_lookup_table_part_buffer <= pbs_lut;
+               bski_part_buf <= bski_part;
 
                for i in 0 to num_leds_for_pbs_result - 1 loop
                     led_o(i) <= std_ulogic(pbs_result(i + to_integer(pbs_display_coeff_cnt))(0));
@@ -283,7 +285,7 @@ begin
                );
      end generate;
 
-     bski_ram_blocks: for bski_coeff_idx in 0 to bsk_i_part'length - 1 generate
+     bski_ram_blocks: for bski_coeff_idx in 0 to bski_part'length - 1 generate
           bski_ram: manual_constant_bram
                generic map (
                     ram_content         => bski_ram_content(bski_coeff_idx * bski_ram_num_coeffs to (bski_coeff_idx + 1) * bski_ram_num_coeffs - 1),
@@ -294,7 +296,7 @@ begin
                port map (
                     i_clk     => clk_signal,
                     i_rd_addr => bsk_coeff_cnt(bsk_coeff_cnt'length - 1),
-                    o_data    => bsk_i_part(bski_coeff_idx)
+                    o_data    => bski_part(bski_coeff_idx)
                );
      end generate;
 
@@ -312,18 +314,20 @@ begin
           );
      b_val <= b_val_raw(b_val_raw'length - b_val'length to b_val_raw'length - 1);
 
-     ai_ram: manual_constant_bram
-          generic map (
-               ram_content         => ai_ram_content,
-               addr_length         => ai_coeff_cnt(0)'length,
-               ram_out_bufs_length => default_ram_retiming_latency+extra_buf_retiming_latency,
-               ram_type            => ram_style_auto
-          )
-          port map (
-               i_clk     => clk_signal,
-               i_rd_addr => ai_coeff_cnt(ai_coeff_cnt'length - 1),
-               o_data    => ai_raw
-          );
-     ai <= ai_raw(ai_raw'length - ai'length to ai_raw'length - 1);
+     ai_ram_blocks: for ai_coeff_idx in 0 to ai'length - 1 generate
+          ai_ram: manual_constant_bram
+               generic map (
+                    ram_content         => ai_ram_content,
+                    addr_length         => ai_coeff_cnt(0)'length,
+                    ram_out_bufs_length => default_ram_retiming_latency,
+                    ram_type            => ram_style_auto
+               )
+               port map (
+                    i_clk     => clk_signal,
+                    i_rd_addr => ai_coeff_cnt(ai_coeff_cnt'length - 1),
+                    o_data    => ai_raw(ai_coeff_idx)
+               );
+          ai(ai_coeff_idx) <= ai_raw(ai_coeff_idx)(ai_raw(0)'length - ai(0)'length to ai_raw(0)'length - 1);
+     end generate;
 
 end architecture;

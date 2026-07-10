@@ -179,13 +179,6 @@ architecture Behavioral of blind_rotation_iteration is
      -- we omit that for the time being since the caller modules of this one also need to know those latencys
      type sub_polyms_size_throughput is array (natural range <>) of sub_polynom(0 to throughput - 1);
 
-     constant extra_latency_buffer_ram_possible : boolean := (blind_rot_iter_extra_latency > (extra_latency_ram_retiming_latency + 1));
-     constant extra_latency_buffer_length       : integer := get_max(1, blind_rot_iter_extra_latency - boolean'pos(extra_latency_buffer_ram_possible) * (extra_latency_ram_retiming_latency));
-     signal extra_latency_buffer_end_part       : sub_polynom(0 to throughput - 1);
-     signal extra_latency_buffer                : sub_polyms_size_throughput(0 to boolean'pos(not extra_latency_buffer_ram_possible) * extra_latency_buffer_length - 1);
-
-     signal extra_latency_buffer_cnt : unsigned(0 to get_bit_length(extra_latency_buffer_length) - 1) := to_unsigned(0, get_bit_length(extra_latency_buffer_length)); -- this module needs an early reset for this to work
-
      -- we need an enormous buffer so that the old accumulator can be added at the end for the bootstrapping
      -- there is no other way since we work pipelined and do not want to strain the memory for this
      signal acc_old_part : sub_polynom(0 to throughput - 1);
@@ -195,7 +188,6 @@ architecture Behavioral of blind_rotation_iteration is
      -- decompose related signals
      signal decompose_output_line_format : synth_uint_vector(0 to throughput * decomposition_length - 1);
      signal decompose_output             : sub_polyms_size_throughput(0 to decomposition_length - 1);
-     signal decomp_not_ready             : std_ulogic_vector(0 to num_ntts - 1);
 
      -- ntt related signals
      signal result_ntt                        : sub_polyms_size_throughput(0 to num_ntts - 1);
@@ -213,14 +205,15 @@ architecture Behavioral of blind_rotation_iteration is
      signal adder_tree_result  : sub_polyms_size_throughput(0 to num_intts - 1);
      signal adder_tree_result_buf  : sub_polyms_size_throughput(0 to num_intts - 1);
 
+     -- signal ntt_out_buf_not_ready        : std_ulogic;
      -- intt related signals
      signal intt_result_not_ready        : std_ulogic;
      signal result_intt_not_rescaled     : sub_polynom(0 to throughput - 1);
      signal result_intt_not_rescaled_buf : sub_polynom(0 to throughput - 1);
 
      constant num_adder_tree_stages : integer := get_bit_length(decomposition_length * polyms_per_ciphertext - 1);
-     constant log2_throughput       : integer := get_bit_length(throughput - 1);
-     constant ntt_latency           : integer := get_ntt_latency(log2_num_coefficients, log2_throughput, ntt_params.negacyclic, false, false, false);
+     -- constant log2_throughput       : integer := get_bit_length(throughput - 1);
+     -- constant ntt_latency           : integer := get_ntt_latency(log2_num_coefficients, log2_throughput, ntt_params.negacyclic, false, false, false);
 
      constant clks_till_ntt_out_buf_ready          : integer := num_polyms_per_rlwe_ciphertext * ntt_num_blocks_per_polym + ntt_out_buf_ram_retiming_latency + 1; -- +1 for input buffer
      constant adder_tree_delay                     : integer := num_adder_tree_stages * clks_per_64_bit_add_mod;
@@ -237,7 +230,7 @@ begin
           )
           port map (
                i_clk       => i_clk,
-               i_sub_polym => extra_latency_buffer_end_part,
+               i_sub_polym => i_acc_part,
                o_result    => decompose_output_line_format
           );
 
@@ -248,17 +241,6 @@ begin
      end generate;
 
      ntts: for L_idx in 0 to num_ntts - 1 generate
-          initial_latency_counter: one_time_counter
-               generic map (
-                    tripping_value     => blind_rot_iter_extra_latency + initial_decomp_delay_first_block - ntt_num_clks_reset_early,
-                    out_negated        => true,
-                    bufferchain_length => trailing_reset_buffer_len
-               )
-               port map (
-                    i_clk     => i_clk,
-                    i_reset   => i_reset,
-                    o_tripped => decomp_not_ready(L_idx)
-               );
           d_ntt: ntt
                generic map (
                     throughput                => throughput,
@@ -269,7 +251,7 @@ begin
                )
                port map (
                     i_clk               => i_clk,
-                    i_reset             => decomp_not_ready(L_idx),
+                    i_reset             => i_reset,
                     i_sub_polym         => decompose_output(L_idx),
                     o_result            => result_ntt(L_idx),
                     o_next_module_reset => ntt_result_not_ready(L_idx)
@@ -284,13 +266,13 @@ begin
 
      ntt_out_buf_reset_crtl: one_time_counter
           generic map (
-               tripping_value     => ntt_latency + ntt_twiddle_rams_retiming_latency + ntt_num_clks_reset_early - 1-ntt_out_buf_reset_buf_len, -- -1 since ntt_out_buf needs one tic to compute the addresses
+               tripping_value     => ntt_num_clks_reset_early - 1-ntt_out_buf_reset_buf_len, -- -1 since ntt_out_buf needs one tic to compute the addresses
                out_negated        => true,
                bufferchain_length => trailing_reset_buffer_len
           )
           port map (
                i_clk     => i_clk,
-               i_reset   => decomp_not_ready(0),
+               i_reset   => ntt_result_not_ready(0),
                o_tripped => ntt_out_buf_reset
           );
      ntt_out_buffer: ntt_out_buf
@@ -305,7 +287,7 @@ begin
                i_reset             => ntt_out_buf_reset,
                i_result_ntt        => result_ntt_line_format,
                o_result            => result_ntt_out_buffer_line_format,
-               o_next_module_reset => open
+               o_next_module_reset => open--ntt_out_buf_not_ready
           );
 
      elem_wise_mults: for block_idx in 0 to polyms_per_ciphertext * num_ntts - 1 generate
@@ -359,13 +341,13 @@ begin
 
      initial_intt_reset_latency_counter: one_time_counter
           generic map (
-               tripping_value     => clks_till_intt_start_after_ntt_ready - ntt_twiddle_rams_retiming_latency, -- -ntt_twiddle_rams_retiming_latency because of early reset for intt
+               tripping_value     => clks_till_intt_start_after_ntt_ready - ntt_twiddle_rams_retiming_latency,
                out_negated        => true,
                bufferchain_length => trailing_reset_buffer_len
           )
           port map (
                i_clk     => i_clk,
-               i_reset   => ntt_result_not_ready(0),
+               i_reset   => ntt_result_not_ready(0),--ntt_out_buf_not_ready,
                o_tripped => intt_reset
           );
 
@@ -423,80 +405,20 @@ begin
                o_next_module_reset => o_next_module_reset
           );
 
-     -- extra latency-buffer logic
-     extra_latency_no_buffer_present: if not extra_latency_buffer_ram_possible generate
-          -- not enough headroom for using ram
-          extra_latency_out_mapping: for i in 0 to extra_latency_buffer_end_part'length - 1 generate
-               extra_latency_buffer_end_part(i) <= extra_latency_buffer(extra_latency_buffer'length - 1)(i);
-          end generate;
-
-          no_logic: if blind_rot_iter_extra_latency = 0 generate
-               extra_latency_buffer(0)       <= i_acc_part;
-          end generate;
-          basic_buf_logic: if blind_rot_iter_extra_latency = 1 generate
-               process (i_clk)
-               begin
-                    if rising_edge(i_clk) then
-                         extra_latency_buffer(0) <= i_acc_part;
-                    end if;
-               end process;
-          end generate;
-          buf_logic: if blind_rot_iter_extra_latency > 1 generate
-               process (i_clk)
-               begin
-                    if rising_edge(i_clk) then
-                         extra_latency_buffer <= i_acc_part & extra_latency_buffer(0 to extra_latency_buffer'length - 2);
-                    end if;
-               end process;
-          end generate;
-     end generate;
-
-     extra_latency_buffer_present: if extra_latency_buffer_ram_possible generate
-          extra_latency_brams: for coeff_idx in 0 to i_acc_part'length - 1 generate
-               ram_elem: manual_bram
-                    generic map (
-                         addr_length         => extra_latency_buffer_cnt'length,
-                         ram_length          => extra_latency_buffer_length,
-                         ram_out_bufs_length => extra_latency_ram_retiming_latency,
-                         ram_type            => extra_latency_buffer_ram_type,
-                         coeff_bit_width     => i_acc_part(0)'length
-                    )
-                    port map (
-                         i_clk     => i_clk,
-                         i_wr_en   => '1',
-                         i_wr_data => i_acc_part(coeff_idx),
-                         i_wr_addr => extra_latency_buffer_cnt,
-                         i_rd_addr => extra_latency_buffer_cnt,
-                         o_data    => extra_latency_buffer_end_part(coeff_idx)
-                    );
-          end generate;
-
-          process (i_clk)
-          begin
-               if rising_edge(i_clk) then
-                    if extra_latency_buffer_cnt = 0 then
-                         extra_latency_buffer_cnt <= to_unsigned(extra_latency_buffer_length - 1, extra_latency_buffer_cnt'length);
-                    else
-                         extra_latency_buffer_cnt <= extra_latency_buffer_cnt - to_unsigned(1, extra_latency_buffer_cnt'length);
-                    end if;
-               end if;
-          end process;
-     end generate;
-
      -- acc buffer logic
-     acc_buffer_urams: for coeff_idx in 0 to extra_latency_buffer_end_part'length - 1 generate
+     acc_buffer_urams: for coeff_idx in 0 to i_acc_part'length - 1 generate
           ram_elem: manual_bram
                generic map (
                     addr_length         => acc_in_buffer_cnt'length,
                     ram_length          => acc_buffer_length,
                     ram_out_bufs_length => acc_buf_ram_retiming_latency,
                     ram_type            => acc_buffer_ram_type,
-                    coeff_bit_width     => extra_latency_buffer_end_part(0)'length
+                    coeff_bit_width     => i_acc_part(0)'length
                )
                port map (
                     i_clk     => i_clk,
                     i_wr_en   => '1',
-                    i_wr_data => extra_latency_buffer_end_part(coeff_idx),
+                    i_wr_data => i_acc_part(coeff_idx),
                     i_wr_addr => acc_in_buffer_cnt,
                     i_rd_addr => acc_in_buffer_cnt,
                     o_data    => acc_old_part(coeff_idx)

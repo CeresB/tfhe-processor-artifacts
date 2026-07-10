@@ -109,7 +109,7 @@ architecture Behavioral of blind_rotation_iteration_tb is
      constant test_ext_prod_adder_tree_latency                 : integer := blind_rot_iter_adder_tree_latency;           -- v4p ignore w-303
      --constant test_ntt_clks_till_complete_result_done: integer := ntt_clks_till_complete_result_ready;
      constant test_intt_wo_rescaling_clks_till_first_res_ready : integer := intt_wo_rescaling_clks_till_first_res_ready; -- v4p ignore w-303
-     constant test_ext_prod_latency_till_elem_wise_mult        : integer := blind_rot_iter_latency_till_elem_wise_mult;  -- v4p ignore w-303
+     constant test_ext_prod_min_latency_till_elem_wise_mult        : integer := blind_rot_iter_min_latency_till_elem_wise_mult;  -- v4p ignore w-303
      constant test_ext_prod_latency_till_monomial_mult         : integer := blind_rot_iter_latency_till_monomial_mult;   -- v4p ignore w-303
      constant test_ext_prod_extra_latency                      : integer := blind_rot_iter_extra_latency;                -- v4p ignore w-303
      constant test_ext_prod_latency_till_ready_for_ai          : integer := blind_rot_iter_latency_till_ready_for_ai;    -- v4p ignore w-303
@@ -188,7 +188,7 @@ begin
                          input_choice <= not input_choice;
                     end if;
 
-                    if clk_cnt > blind_rot_iter_latency_till_elem_wise_mult - 1 then
+                    if clk_cnt > blind_rot_iter_min_latency_till_elem_wise_mult - 1 then
                          bsk_polym_coeff_cnt <= bsk_polym_coeff_cnt + to_unsigned(throughput, bsk_polym_coeff_cnt'length);
                          for polym_idx in 0 to input_bsk'length - 1 loop
                               for coeff_idx in 0 to throughput - 1 loop
@@ -306,8 +306,15 @@ begin
           end if;
 
           -- handle early reset for the module
-          ext_prod_reset <= '0';
-          reset <= '0';
+          if initial_decomp_delay_first_block-ntt_num_clks_reset_early < 0 then
+               ext_prod_reset <= '0';
+               wait for clk_period*(ntt_num_clks_reset_early-initial_decomp_delay_first_block);
+               reset <= '0';
+          else
+               reset <= '0';
+               wait for clk_period*(initial_decomp_delay_first_block-ntt_num_clks_reset_early);
+               ext_prod_reset <= '0';
+          end if;
 
           wait until ext_prod_first_result_polym_ready = '1';
 
@@ -327,6 +334,7 @@ begin
 
           assert not pass report "All tests passed succesfully. Keep in mind that these are superfical tests! Verify more complex settings manually!" severity note;
           assert pass report "Testbench found errors" severity error;
+          assert br_unrolling_factor=1 report "Set pbs_unrolling_factor to 1 for this testbench to work!" severity error;
           finished <= '1';
           wait;
      end process;

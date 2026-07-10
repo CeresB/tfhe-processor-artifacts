@@ -53,8 +53,8 @@ architecture Behavioral of pbs_tb is
                i_reset              : in  std_ulogic;
                i_lookup_table_part  : in  sub_polynom(0 to throughput - 1); -- for the programmable bootstrapping, only a part of an RLWE ciphertext
                i_lwe_b              : in  rotate_idx;
-               i_lwe_ai             : in  rotate_idx;
-               i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext - 1);
+               i_lwe_ai             : in  rotate_idx_array(0 to br_unrolling_factor-1);
+               i_BSK_i_part         : in  sub_polynom(0 to throughput * decomposition_length * polyms_per_ciphertext * br_unrolling_factor - 1);
                -- i_sample_extract_idx : in  idx_int;
                -- o_sample_extract_idx : out idx_int;
                o_result             : out sub_polynom(0 to throughput - 1);
@@ -80,9 +80,9 @@ architecture Behavioral of pbs_tb is
      signal pbs_output_not_ready  : std_logic := '0';
      signal pbs_reset             : std_logic;
      signal pbs_lwe_b             : rotate_idx;
-     signal bsk_i_part            : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext - 1);
+     signal bski_part            : sub_polynom(0 to throughput * decomp_length * num_polyms_per_rlwe_ciphertext * br_unrolling_factor - 1);
      signal pbs_result            : sub_polynom(0 to throughput - 1); -- v4p ignore w-303
-     signal ai                    : rotate_idx;
+     signal ai                    : rotate_idx_array(0 to br_unrolling_factor-1);
      -- signal sample_extract_idx    : idx_int;
      signal pbs_lookup_table_part : sub_polynom(0 to throughput - 1);
 
@@ -104,6 +104,9 @@ architecture Behavioral of pbs_tb is
      -- constant test_bs_init_latency: integer := bs_init_latency;
      -- constant test_sample_extract_latency: integer := sample_extract_latency;
      -- constant test_bs_clks_till_first_result_block: integer := bs_clks_till_first_result_block;
+     constant test_blind_rot_iter_latency: integer := blind_rot_iter_latency;
+     constant test_blind_rot_iter_pipeline_steps_per_ciphertext: integer := blind_rot_iter_pipeline_steps_per_ciphertext;
+     constant test_blind_rot_iter_num_ciphertexts_in_pipeline: integer := blind_rot_iter_num_ciphertexts_in_pipeline;
 
 begin
      clk <= not clk after TIME_DELTA when finished /= '1' else '0';
@@ -116,7 +119,7 @@ begin
                polyms_per_ciphertext          => num_polyms_per_rlwe_ciphertext,
                bits_per_slice                 => log2_decomp_base,
                min_latency_till_monomial_mult => blind_rot_iter_min_latency_till_monomial_mult,
-               num_iterations                 => k_lwe
+               num_iterations                 => br_unrolled_num_iters
           )
           port map (
                i_clk                => clk,
@@ -126,7 +129,7 @@ begin
                i_lwe_ai             => ai,
                -- i_sample_extract_idx => sample_extract_idx,
                -- o_sample_extract_idx => open,
-               i_BSK_i_part         => bsk_i_part,
+               i_BSK_i_part         => bski_part,
                o_result             => pbs_result,
                o_next_module_reset  => pbs_output_not_ready
           );
@@ -182,7 +185,9 @@ begin
 
                     for polym_idx in 0 to input_bsk'length - 1 loop
                          for coeff_idx in 0 to throughput - 1 loop
-                              bsk_i_part(polym_idx * throughput + coeff_idx) <= input_bsk(polym_idx)(coeff_idx + to_integer(bsk_polym_coeff_cnt));
+                              for loop_idx in 0 to br_unrolling_factor - 1 loop
+                                   bski_part((polym_idx*br_unrolling_factor+loop_idx) * throughput + coeff_idx) <= input_bsk(polym_idx)(coeff_idx + to_integer(bsk_polym_coeff_cnt));
+                              end loop;
                          end loop;
                     end loop;
 
@@ -191,15 +196,17 @@ begin
                     end if;
 
                     if clk_cnt > blind_rot_iter_latency_till_monomial_mult + bs_init_latency - 1 then
-                         ai <= ai_array(to_integer(ai_coeff_idx));
+                         for i in 0 to ai'length-1 loop
+                              ai(i) <= ai_array(to_integer(ai_coeff_idx)+i);
+                         end loop;
                          -- ai is valid for one iteration
                          if ai_blocks_cnt < blind_rot_iter_latency - 1 then
                               ai_blocks_cnt <= ai_blocks_cnt + 1;
                          else
                               ai_blocks_cnt <= 0;
 
-                              if ai_coeff_idx < to_unsigned(k_lwe - 1, ai_coeff_idx'length) then
-                                   ai_coeff_idx <= ai_coeff_idx + to_unsigned(1, ai_coeff_idx'length);
+                              if ai_coeff_idx < to_unsigned(k_lwe - ai'length, ai_coeff_idx'length) then
+                                   ai_coeff_idx <= ai_coeff_idx + to_unsigned(ai'length, ai_coeff_idx'length);
                               else
                                    ai_coeff_idx <= to_unsigned(0, ai_coeff_idx'length);
                               end if;

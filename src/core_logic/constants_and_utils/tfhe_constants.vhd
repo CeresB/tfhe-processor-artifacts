@@ -69,11 +69,12 @@ package tfhe_constants is
 
   -- values you may change
   constant log2_pbs_throughput      : integer := log2_ntt_throughput; --get_max(log2_ntt_throughput, get_bit_length(ai_hbm_coeffs_per_clk - 1)); -- must be between 2 and log2_maximum_sequential_ntt_throughput (including the border values)
-  constant log2_decomp_base         : integer := 10;                  -- also known as log2(beta), 2**log2_decomp_base must be power of 2 for the decomposition to work
-  constant decomp_length            : integer := 2;                   -- also known as L
+  constant br_unrolling_factor     : integer := 1;--1*boolean'pos(debug_mode) + 1*ai_hbm_coeffs_per_clk*boolean'pos(not debug_mode); -- n must be a multiple of this
+  constant log2_decomp_base         : integer := 23;                  -- also known as log2(beta), 2**log2_decomp_base must be power of 2 for the decomposition to work
+  constant decomp_length            : integer := 1;                   -- also known as L
   constant decomp_num_LSBs_to_round : integer := log2_decomp_base;
   -- design decision: k_lwe is always a multiple of ai_hbm_coeffs_per_clk, so that it fits into the storage neatly.
-  constant k_lwe        : integer             := integer(ceil(real(boolean'pos(not debug_mode) * 500 + 2 * boolean'pos(debug_mode)) / real(ai_hbm_coeffs_per_clk))) * ai_hbm_coeffs_per_clk; -- must be a multiple of ai_hbm_coeffs_per_clk
+  constant k_lwe        : integer             := integer(ceil(real(boolean'pos(not debug_mode) * 879 + 2 * boolean'pos(debug_mode)) / real(ai_hbm_coeffs_per_clk))) * ai_hbm_coeffs_per_clk; -- must be a multiple of ai_hbm_coeffs_per_clk
   constant k            : integer             := 1;                                                                                                                                          -- k_rlwe. use a power of 2 for decomp_length and k for best performance of our adder trees
   constant tfhe_modulus : synthesiseable_uint := ntt_prime;                                                                                                                                  -- you cannot easily seperate ntt and tfhe modulus since the whole architecture is build with it in mind
   constant sample_extract_idx: rotate_idx := to_rotate_idx(1);
@@ -89,6 +90,7 @@ package tfhe_constants is
 
   -- values that are inferred - do not change anything in the following block
   -- general
+  constant br_unrolled_num_iters: integer := k_lwe/br_unrolling_factor;
   constant ai_pkgs_per_lwe: integer := k_lwe/ai_hbm_coeffs_per_clk;
   constant num_polyms_per_rlwe_ciphertext               : integer := (1 + k);
   constant pbs_throughput                               : integer := 2 ** log2_pbs_throughput;
@@ -121,7 +123,7 @@ package tfhe_constants is
   constant initial_decomp_delay_first_block           : integer := initial_decomp_delay_without_end_reduction + 1 + 1 * boolean'pos(use_decomp_res_output_buffer) + 1 * boolean'pos(use_decomp_res_temp_buffer); -- +1 for conditional add at the end
 
   -- rotate polym
-  constant rotate_polym_first_block_initial_delay : integer := 1 + rotate_polym_reorder_delay + buffer_answer_delay + rotate_polym_reset_clks_ahead; -- +1 because of stage 0
+  constant rotate_polym_first_block_initial_delay : integer := clks_per_64_bit_add + rotate_polym_reorder_delay + buffer_answer_delay + rotate_polym_reset_clks_ahead;
   constant rotate_with_buffer_latency             : integer := rotate_polym_first_block_initial_delay + ntt_num_blocks_per_polym - rotate_polym_reset_clks_ahead;
 
   -- ACC*(X^a_i -1)+ACC_old
@@ -143,18 +145,19 @@ package tfhe_constants is
   constant blind_rot_iter_min_latency_till_elem_wise_mult : integer := blind_rot_iter_decomp_latency + clks_till_ntt_out_buffer_ready;
   constant blind_rot_iter_min_latency_till_monomial_mult  : integer := blind_rot_iter_min_latency_till_elem_wise_mult + elem_wise_mult_latency + 1 * boolean'pos(use_elem_mult_res_output_buffer) + blind_rot_iter_adder_tree_latency + intt_wo_rescaling_clks_till_first_res_ready + 1 * boolean'pos(use_intt_input_buffer) + 1 * boolean'pos(use_end_step_input_buffer);
   constant blind_rot_iter_minimum_latency                 : integer := blind_rot_iter_min_latency_till_monomial_mult + blind_rot_iter_end_step_initial_delay + 1 * boolean'pos(buffer_blind_rot_input) + 1 * boolean'pos(buffer_blind_rot_output);
+  constant blind_rot_unrolled_latency: integer := br_unrolling_factor*blind_rot_iter_minimum_latency;
   -- we don't want unused pipeline stages when latency is not divisible by num_polyms_per_rlwe_ciphertext*num_blocks_per_polynom
   -- that is why we add extra stages and recompute all delays from there.
   constant blind_rot_iter_pipeline_steps_per_ciphertext   : integer := overall_throughput_num_blocks_per_polym * num_polyms_per_rlwe_ciphertext;
-  constant blind_rot_iter_min_num_ciphertexts_in_pipeline : integer := integer(floor(real(blind_rot_iter_minimum_latency) / real(blind_rot_iter_pipeline_steps_per_ciphertext)));
-  constant blind_rot_iter_extra_latency_raw               : integer := (blind_rot_iter_pipeline_steps_per_ciphertext - (blind_rot_iter_minimum_latency - blind_rot_iter_min_num_ciphertexts_in_pipeline * blind_rot_iter_pipeline_steps_per_ciphertext) - blind_rotation_decision_delay) mod blind_rot_iter_pipeline_steps_per_ciphertext;
+  constant blind_rot_iter_min_num_ciphertexts_in_pipeline : integer := integer(floor(real(blind_rot_unrolled_latency) / real(blind_rot_iter_pipeline_steps_per_ciphertext)));
+  constant blind_rot_iter_extra_latency_raw               : integer := (blind_rot_iter_pipeline_steps_per_ciphertext - (blind_rot_unrolled_latency - blind_rot_iter_min_num_ciphertexts_in_pipeline * blind_rot_iter_pipeline_steps_per_ciphertext) - blind_rotation_decision_delay) mod blind_rot_iter_pipeline_steps_per_ciphertext;
   constant blind_rot_iter_extra_latency                   : integer := blind_rot_iter_extra_latency_raw + blind_rot_iter_pipeline_steps_per_ciphertext*boolean'pos(blind_rot_iter_extra_latency_raw + initial_decomp_delay_first_block < ntt_num_clks_reset_early); -- need to ensure that the values do not arrive before the real reset
   constant blind_rot_iter_latency_till_elem_wise_mult     : integer := blind_rot_iter_min_latency_till_elem_wise_mult + blind_rot_iter_extra_latency;
   constant blind_rot_iter_latency_till_monomial_mult      : integer := blind_rot_iter_min_latency_till_monomial_mult + blind_rot_iter_extra_latency;
   constant blind_rot_iter_latency_till_ready_for_ai       : integer := blind_rot_iter_latency_till_monomial_mult;
-  constant blind_rot_iter_latency                         : integer := blind_rot_iter_minimum_latency + blind_rot_iter_extra_latency;
+  constant blind_rot_iter_latency                         : integer := blind_rot_unrolled_latency + blind_rot_iter_extra_latency + blind_rotation_decision_delay;
 
-  constant blind_rot_iter_num_ciphertexts_in_pipeline : integer := (blind_rot_iter_latency + blind_rotation_decision_delay) / blind_rot_iter_pipeline_steps_per_ciphertext;
+  constant blind_rot_iter_num_ciphertexts_in_pipeline : integer := blind_rot_iter_latency / blind_rot_iter_pipeline_steps_per_ciphertext;
   constant pbs_batchsize                              : integer := blind_rot_iter_num_ciphertexts_in_pipeline;
 
   constant extra_latency_buf_uses_ram         : boolean := blind_rot_iter_extra_latency > (2 ** log2coeffs_per_lutram);
@@ -162,7 +165,7 @@ package tfhe_constants is
   constant acc_buf_ram_retiming_latency       : integer := default_ram_retiming_latency + 1 * boolean'pos(blind_rot_iter_min_latency_till_monomial_mult > (2 ** log2_coeffs_per_bram)) + 1 * boolean'pos(acc_buf_extra_output_buffer);
 
   -- blind rotation
-  constant blind_rotation_latency : integer := k_lwe * blind_rot_iter_latency;
+  constant blind_rotation_latency : integer := br_unrolled_num_iters * blind_rot_iter_latency;
 
   -- bootstrapping init
   constant bs_init_latency : integer := rotate_with_buffer_latency + output_writing_latency;
